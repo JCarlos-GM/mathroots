@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/resources">
+        <file>resources/icons/input_image.png</file>
+        <file>resources/icons/input_voice.png</file>
+        <file>resources/icons/logo.png</file>
+        <file>resources/icons/arrow.png</file>
+        <file>resources/icons/start_icon_1.png</file>
+        <file>resources/icons/start_icon_2.png</file>
+        <file>resources/icons/start_icon_3.png</file>
+        <file>resources/icons/image-loader.png</file>
+        <file>resources/icons/history.png</file>
+        <file>resources/icons/save.png</file>
+        <file>resources/icons/settings.png</file>
+        <file>resources/icons/icons8-home-100.png</file>
+        <file>resources/icons/icons8-info-100.png</file>
+        <file>resources/icons/icons8-selective-highlighting-100.png</file>
+        <file>resources/icons/logo_2.png</file>
+        <file>resources/icons/repo_git.png</file>
+        <file>resources/icons/formula_1.png</file>
+        <file>resources/icons/formula_2.png</file>
+    </qresource>
+</RCC>

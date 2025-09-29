@@ -1,0 +1,5 @@
+[project]
+name = "PySide Widgets Project"
+
+[tool.pyside6-project]
+files = ["form.ui", "mathroots.py", "resources.qrc", "ui/about.ui", "ui/about_v2.ui", "ui/dashboard.ui", "ui/image.ui", "ui/settings.ui", "ui/solve.ui", "ui/startWindow.ui"]
