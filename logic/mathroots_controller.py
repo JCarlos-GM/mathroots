@@ -1,4 +1,3 @@
-# logic/mathroots_controller.py
 """
 Controlador principal de MathRoots - Versión modular con tabla de iteraciones
 """
@@ -152,6 +151,10 @@ class MathRootsController(QObject):
             
             self.clear_iterations_table()
             
+            # Limpia el widget de resultados antes de cada ejecución
+            if hasattr(self.ui, 'result_roots'):
+                self.ui.result_roots.clear()
+
             print("Buscando intervalos automáticamente...")
             
             all_intervals = self.math_methods.find_all_suitable_intervals(start=-100, end=100, step=0.1)
@@ -165,19 +168,25 @@ class MathRootsController(QObject):
                     
                     result = self.math_methods.bisection_method(a, b)
                     
+                    # Añadir resultados al panel de texto
+                    if hasattr(self.ui, 'result_roots'):
+                        self.ui.result_roots.append(f"<b>Raíz #{i+1}</b>")
+                        self.ui.result_roots.append(f"  > <b>Raíz</b>: {result['root']:.8f}")
+                        self.ui.result_roots.append(f"  > <b>Iteraciones</b>: {result['iterations']}")
+                        self.ui.result_roots.append(f"  > <b>Error Aproximado</b>: {result['final_error']:.2e}")
+                        self.ui.result_roots.append("<br>") # Salto de línea para separar visualmente
+                    
                     if result['success'] or (not result['success'] and result['iterations'] > 0):
                         self.math_methods.populate_table_rows(self.ui.tabla_iteraciones, result['iterations_data'])
                         
-                        # Añade una fila en blanco como separador
                         if i < len(all_intervals) - 1:
-                            row_count = self.ui.tabla_iteraciones.rowCount()
-                            self.ui.tabla_iteraciones.insertRow(row_count)
-                            # Opcional: Estilizar la fila para que sea visualmente distinta
-                            for col in range(self.ui.tabla_iteraciones.columnCount()):
-                                item = QTableWidgetItem("")
-                                # CAMBIO AQUÍ: Usar QColor para un color hexadecimal
-                                item.setBackground(QColor('#FFFFFF'))
-                                self.ui.tabla_iteraciones.setItem(row_count, col, item)
+                            for _ in range(2):
+                                row_count = self.ui.tabla_iteraciones.rowCount()
+                                self.ui.tabla_iteraciones.insertRow(row_count)
+                                for col in range(self.ui.tabla_iteraciones.columnCount()):
+                                    item = QTableWidgetItem("")
+                                    item.setBackground(QColor('#E5E5E5'))
+                                    self.ui.tabla_iteraciones.setItem(row_count, col, item)
                     
                     if result['success']:
                         print(f"  > {result['message']}")
@@ -187,11 +196,13 @@ class MathRootsController(QObject):
                 self.ui.resultados.setCurrentIndex(1)
             else:
                 print("No se pudo encontrar un intervalo adecuado automáticamente.")
-                if hasattr(self.ui, 'resultado_label'):
-                    self.ui.resultado_label.setText("No se encontró una raíz en el rango predeterminado.")
+                if hasattr(self.ui, 'result_roots'):
+                    self.ui.result_roots.append("No se encontró una raíz en el rango predeterminado.")
                     
         except Exception as e:
             print(f"Error en búsqueda automática: {e}")
+            if hasattr(self.ui, 'result_roots'):
+                self.ui.result_roots.append(f"Error: {str(e)}")
 
     def clear_iterations_table(self):
         """Limpia la tabla de iteraciones"""

@@ -90,6 +90,7 @@ class MathMethods:
                     "error": f"f({a}) = {fa:.6f} y f({b}) = {fb:.6f} tienen el mismo signo. No se puede aplicar bisección.",
                     "iterations": 0,
                     "root": None,
+                    "final_error": 0.0,
                     "iterations_data": iterations_data,
                 }
 
@@ -153,6 +154,7 @@ class MathMethods:
                 "error": f"Error en el cálculo: {str(e)}",
                 "iterations": 0,
                 "root": None,
+                "final_error": 0.0,
                 "iterations_data": iterations_data,
             }
 
@@ -253,7 +255,7 @@ class MathMethods:
 
     def clear_iterations(self):
         """Limpia los datos de iteraciones almacenados"""
-        pass # No se necesita almacenar los datos internamente, el controlador los maneja
+        pass
 
     def get_function_value_at(self, x_value: float) -> float:
         """
@@ -298,4 +300,4 @@ class MathMethods:
         Retorna estadísticas resumen de la última ejecución de bisección.
         Esta función ya no es necesaria, la lógica se mueve al controlador.
         """
-        return {} # Se deja vacía ya que la lógica se traslada al controlador
+        return {}
