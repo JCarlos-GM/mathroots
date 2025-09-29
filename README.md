@@ -32,7 +32,7 @@ Funcionalidad de reconocimiento de voz para entrada de ecuaciones o comandos
 ⚙️ Tecnologías y Librerías Utilizadas
 GUI y manejo de imágenes
 
-PySide6 – Framework para interfaz gráfica
+```PySide6 – Framework para interfaz gráfica
 
 Qt Material – Temas y estilos modernos
 
