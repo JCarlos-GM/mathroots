@@ -38,27 +38,11 @@ class MathRootsController(QObject):
         self.ui.load_image.clicked.connect(self.load_image)
         self.ui.input_voice.clicked.connect(self.voice_mode)
         self.ui.solve.clicked.connect(self.process_solve)
+        self.ui.solve_3.clicked.connect(self.process_solve)  # ← CAMBIAR ESTA LÍNEA
         self.ui.resultado_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.resultado_2))
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
-
-        if hasattr(self.ui, 'solve_3'):
-            self.ui.solve_3.clicked.connect(self.on_solve_3_clicked)
-        
-    def on_solve_3_clicked(self):
-        
-        """Maneja el evento del botón solve_3"""
-        if hasattr(self.ui, 'input_3'):
-            ecuacion = self.ui.input_3.toPlainText().strip()
-        elif hasattr(self.ui, 'input'):
-            ecuacion = self.ui.input.toPlainText().strip()
-        else:
-            return
-        
-        if ecuacion:
-            self.math_methods.set_equation(ecuacion)
-            self.graficar_ecuacion_actual()
 
     def graficar_ecuacion_actual(self):
         """Grafica la ecuación actual almacenada en math_methods"""
@@ -185,7 +169,7 @@ class MathRootsController(QObject):
                                 self.ui.tabla_iteraciones.insertRow(row_count)
                                 for col in range(self.ui.tabla_iteraciones.columnCount()):
                                     item = QTableWidgetItem("")
-                                    item.setBackground(QColor('#E5E5E5'))
+                                    item.setBackground(QColor('#FFFFFF'))
                                     self.ui.tabla_iteraciones.setItem(row_count, col, item)
                     
                     if result['success']:
@@ -249,13 +233,24 @@ class MathRootsController(QObject):
 
 
     def process_solve(self):
-        """Función que se ejecuta al hacer click en 'solve'"""
-        input_text = self.ui.input.toPlainText()
+        """Función que se ejecuta al hacer click en 'solve' o 'solve_3'"""
+        # Intentar leer de ambos inputs posibles
+        if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
+            input_text = self.ui.input_3.toPlainText().strip()
+        else:
+            input_text = self.ui.input.toPlainText().strip()
+        
+        if not input_text:
+            print("No hay ecuación para resolver")
+            return
+        
         self.math_methods.equation = input_text
         
+        # Sincronizar ambos inputs
         if hasattr(self.ui, 'input_3'):
-            self.ui.input_3.setText(input_text)
-
+            self.ui.input_3.setPlainText(input_text)
+        self.ui.input.setPlainText(input_text)
+        
         print(f"La ecuación capturada es: {self.math_methods.equation}")
         
         validation = self.math_methods.validate_equation()

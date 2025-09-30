@@ -1368,7 +1368,7 @@ class Ui_MathRoots(object):
         self.label.setFont(font7)
         self.result_roots = QTextEdit(self.resultadosW)
         self.result_roots.setObjectName(u"result_roots")
-        self.result_roots.setGeometry(QRect(20, 50, 651, 441))
+        self.result_roots.setGeometry(QRect(20, 50, 1111, 441))
         palette15 = QPalette()
         palette15.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.WindowText, brush)
         palette15.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.Button, brush1)
