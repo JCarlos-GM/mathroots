@@ -24,14 +24,12 @@ class Ui_Form(object):
         if not Form.objectName():
             Form.setObjectName(u"Form")
         Form.resize(1280, 741)
-        self.frame = QFrame(Form)
-        self.frame.setObjectName(u"frame")
-        self.frame.setGeometry(QRect(0, 0, 1280, 740))
-        self.frame.setStyleSheet(u"background-color: #E5E5E5;\n"
+        self.widget = QWidget(Form)
+        self.widget.setObjectName(u"widget")
+        self.widget.setGeometry(QRect(0, 0, 1280, 740))
+        self.widget.setStyleSheet(u"background-color: #E5E5E5;\n"
 "border: none;")
-        self.frame.setFrameShape(QFrame.Shape.StyledPanel)
-        self.frame.setFrameShadow(QFrame.Shadow.Raised)
-        self.frame_2 = QFrame(self.frame)
+        self.frame_2 = QFrame(self.widget)
         self.frame_2.setObjectName(u"frame_2")
         self.frame_2.setGeometry(QRect(0, 0, 1280, 200))
         self.frame_2.setStyleSheet(u"background-color: #CD1C18;\n"
@@ -162,7 +160,7 @@ class Ui_Form(object):
         self.input.setFont(font)
         self.input.viewport().setProperty(u"cursor", QCursor(Qt.CursorShape.IBeamCursor))
         self.input.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.mainFrame = QFrame(self.frame)
+        self.mainFrame = QFrame(self.widget)
         self.mainFrame.setObjectName(u"mainFrame")
         self.mainFrame.setGeometry(QRect(0, 200, 1280, 541))
         self.mainFrame.setStyleSheet(u"background-color: #E5E5E5;\n"

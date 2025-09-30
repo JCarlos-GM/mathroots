@@ -24,14 +24,12 @@ class Ui_Form(object):
         if not Form.objectName():
             Form.setObjectName(u"Form")
         Form.resize(1280, 740)
-        self.frame = QFrame(Form)
-        self.frame.setObjectName(u"frame")
-        self.frame.setGeometry(QRect(0, 0, 1280, 740))
-        self.frame.setStyleSheet(u"background-color: #CD1C18;\n"
+        self.widget = QWidget(Form)
+        self.widget.setObjectName(u"widget")
+        self.widget.setGeometry(QRect(0, 0, 1280, 740))
+        self.widget.setStyleSheet(u"background-color: #CD1C18;\n"
 "border: none;")
-        self.frame.setFrameShape(QFrame.Shape.StyledPanel)
-        self.frame.setFrameShadow(QFrame.Shadow.Raised)
-        self.frame_2 = QFrame(self.frame)
+        self.frame_2 = QFrame(self.widget)
         self.frame_2.setObjectName(u"frame_2")
         self.frame_2.setGeometry(QRect(50, 10, 1181, 681))
         palette = QPalette()
