@@ -1,7 +1,3 @@
-"""
-Controlador principal de MathRoots - Versión modular con tabla de iteraciones
-"""
-
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QAbstractItemView, QTableWidgetItem
 from PySide6.QtGui import QPixmap, QColor
