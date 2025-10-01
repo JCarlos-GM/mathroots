@@ -20,9 +20,20 @@ class MathRootsController(QObject):
         self.voice_worker = None
         self.math_methods = MathMethods()
         self.graphics = None
-        
+
+        self.settings = {
+            'method': 'biseccion',
+            'tolerance': 1e-6,
+            'max_iterations': 100,
+            'auto_interval': True,
+            'interval_start': -100,
+            'interval_end': 100,
+            'interval_step': 0.1,
+        }
+
         self.setup_connections()
         self.setup_iterations_table()
+
 
     def set_graphics(self, graphics):
         """Establece la referencia al objeto Graphic"""
@@ -39,6 +50,9 @@ class MathRootsController(QObject):
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
+
+        if hasattr(self.ui, 'settings'):
+            self.ui.settings.clicked.connect(self.open_settings)
 
     def graficar_ecuacion_actual(self):
         """Grafica la ecuación actual almacenada en math_methods"""
@@ -66,7 +80,13 @@ class MathRootsController(QObject):
         """Configura la tabla de iteraciones inicial"""
         if hasattr(self.ui, 'tabla_iteraciones'):
             self.ui.tabla_iteraciones.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
-            headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
+            
+            # Usar el método actual de las configuraciones
+            if self.settings['method'] == 'biseccion':
+                headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
+            else:  # newton
+                headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
+            
             self.ui.tabla_iteraciones.setColumnCount(len(headers))
             self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
             
@@ -74,7 +94,7 @@ class MathRootsController(QObject):
             self.ui.tabla_iteraciones.setSelectionBehavior(QAbstractItemView.SelectRows)
             self.ui.tabla_iteraciones.horizontalHeader().setStretchLastSection(True)
             
-            print("Tabla de iteraciones configurada correctamente")
+            print(f"Tabla de iteraciones configurada para método: {self.settings['method']}")
 
     def update_iterations_table(self):
         """Actualiza la tabla de iteraciones con los datos del método de bisección"""
@@ -249,6 +269,12 @@ class MathRootsController(QObject):
         
         print(f"La ecuación capturada es: {self.math_methods.equation}")
         
+        # AGREGAR: Mostrar configuración actual
+        self.display_current_method_info()
+        
+        # AGREGAR: Actualizar encabezados de tabla según método
+        self.update_table_headers_for_method()
+        
         validation = self.math_methods.validate_equation()
         if validation['valid']:
             print(f"Ecuación válida: {validation['processed_equation']}")
@@ -259,10 +285,10 @@ class MathRootsController(QObject):
         
         if validation['valid']:
             self.graficar_ecuacion_actual()
-            print("Ejecutando bisección automática...")
+            print(f"Ejecutando método: {self.settings['method'].upper()}")
             self.auto_find_and_solve()
         else:
-            print(f"No se puede ejecutar bisección: {validation['error']}")
+            print(f"No se puede ejecutar: {validation['error']}")
 
     def change_main_index(self, index: int):
         self.ui.stackedWidget.setCurrentIndex(index)
@@ -475,3 +501,240 @@ class MathRootsController(QObject):
         processed_text = re.sub(r'(\w)\s*cuadrada', r'\1^2', processed_text)
         
         return processed_text
+    
+    def open_settings(self):
+        """Abre la ventana de configuraciones"""
+        from ui.settings_dialog import SettingsDialog
+        
+        dialog = SettingsDialog(parent=None, current_settings=self.settings)
+        dialog.settings_saved.connect(self._on_settings_saved)
+        dialog.exec()
+
+    def _on_settings_saved(self, new_settings):
+        """Callback cuando se guardan nuevas configuraciones"""
+        self.settings = new_settings.copy()
+        print("Configuraciones actualizadas en el controlador")
+        
+        # Actualizar encabezados de tabla según el método
+        self.update_table_headers_for_method()
+
+    def update_table_headers_for_method(self):
+        """Actualiza los encabezados de la tabla según el método seleccionado"""
+        if not hasattr(self.ui, 'tabla_iteraciones'):
+            return
+        
+        if self.settings['method'] == 'biseccion':
+            headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
+        else:  # newton
+            headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
+        
+        self.ui.tabla_iteraciones.setColumnCount(len(headers))
+        self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
+        print(f"Encabezados de tabla actualizados para método: {self.settings['method']}")
+
+    def auto_find_and_solve(self):
+        """
+        Busca automáticamente intervalos/valores iniciales y ejecuta el método seleccionado.
+        Versión mejorada que usa las configuraciones.
+        """
+        try:
+            if not self.math_methods.equation.strip():
+                print("No hay ecuación para resolver")
+                return
+            
+            self.clear_iterations_table()
+            
+            # Limpia el widget de resultados
+            if hasattr(self.ui, 'result_roots'):
+                self.ui.result_roots.clear()
+            
+            method = self.settings['method']
+            tolerance = self.settings['tolerance']
+            max_iterations = self.settings['max_iterations']
+            
+            print(f"Método seleccionado: {method.upper()}")
+            print(f"Tolerancia: {tolerance}, Max Iteraciones: {max_iterations}")
+            
+            if method == 'biseccion':
+                self._solve_with_bisection(tolerance, max_iterations)
+            else:  # newton
+                self._solve_with_newton(tolerance, max_iterations)
+                
+        except Exception as e:
+            print(f"Error en búsqueda automática: {e}")
+            if hasattr(self.ui, 'result_roots'):
+                self.ui.result_roots.append(f"Error: {str(e)}")
+
+    def _solve_with_bisection(self, tolerance, max_iterations):
+        """Resuelve usando método de bisección"""
+        print("Buscando intervalos automáticamente para Bisección...")
+        
+        if self.settings['auto_interval']:
+            start = self.settings['interval_start']
+            end = self.settings['interval_end']
+            step = self.settings['interval_step']
+        else:
+            start = self.settings['interval_start']
+            end = self.settings['interval_end']
+            step = self.settings['interval_step']
+        
+        all_intervals = self.math_methods.find_all_suitable_intervals(
+            start=start, end=end, step=step
+        )
+        
+        if all_intervals:
+            print(f"Se encontraron {len(all_intervals)} intervalos adecuados.")
+            
+            for i, interval in enumerate(all_intervals):
+                a, b = interval
+                print(f"Resolviendo raíz #{i+1} en [{a:.2f}, {b:.2f}]")
+                
+                result = self.math_methods.bisection_method(a, b, tolerance, max_iterations)
+                
+                # Añadir resultados al panel
+                if hasattr(self.ui, 'result_roots'):
+                    self.ui.result_roots.append(f"<b>Raíz #{i+1}</b>")
+                    self.ui.result_roots.append(f"  > <b>Raíz</b>: {result['root']:.8f}")
+                    self.ui.result_roots.append(f"  > <b>Iteraciones</b>: {result['iterations']}")
+                    self.ui.result_roots.append(f"  > <b>Error</b>: {result['final_error']:.2e}")
+                    self.ui.result_roots.append("<br>")
+                
+                if result['success'] or (not result['success'] and result['iterations'] > 0):
+                    self.math_methods.populate_table_rows(
+                        self.ui.tabla_iteraciones, result['iterations_data']
+                    )
+                    
+                    # Separador visual
+                    if i < len(all_intervals) - 1:
+                        self._add_table_separator()
+                
+                if result['success']:
+                    print(f"  > {result['message']}")
+                else:
+                    print(f"  > {result['error']}")
+            
+            self.ui.resultados.setCurrentIndex(1)
+        else:
+            print("No se encontraron intervalos adecuados.")
+            if hasattr(self.ui, 'result_roots'):
+                self.ui.result_roots.append("No se encontraron raíces en el rango especificado.")
+
+    def _solve_with_newton(self, tolerance, max_iterations):
+        """Resuelve usando método de Newton-Raphson"""
+        print("Buscando valores iniciales para Newton-Raphson...")
+        
+        if self.settings['auto_interval']:
+            start = self.settings['interval_start']
+            end = self.settings['interval_end']
+            step = self.settings['interval_step'] * 10  # Paso más grande para Newton
+        else:
+            start = self.settings['interval_start']
+            end = self.settings['interval_end']
+            step = self.settings['interval_step'] * 10
+        
+        initial_values = self.math_methods.find_suitable_initial_values(
+            start=start, end=end, step=step, num_values=5
+        )
+        
+        if initial_values:
+            print(f"Se encontraron {len(initial_values)} valores iniciales.")
+            
+            # Para evitar encontrar la misma raíz múltiples veces
+            found_roots = []
+            root_tolerance = 0.01  # Considera raíces iguales si están a menos de esta distancia
+            
+            for i, x0 in enumerate(initial_values):
+                print(f"Probando con x₀ = {x0:.2f}")
+                
+                result = self.math_methods.newton_raphson_method(x0, tolerance, max_iterations)
+                
+                if result['success']:
+                    # Verificar si ya encontramos esta raíz
+                    is_duplicate = False
+                    for existing_root in found_roots:
+                        if abs(result['root'] - existing_root) < root_tolerance:
+                            is_duplicate = True
+                            print(f"  > Raíz duplicada, saltando...")
+                            break
+                    
+                    if not is_duplicate:
+                        found_roots.append(result['root'])
+                        root_num = len(found_roots)
+                        
+                        # Añadir resultados
+                        if hasattr(self.ui, 'result_roots'):
+                            self.ui.result_roots.append(f"<b>Raíz #{root_num}</b>")
+                            self.ui.result_roots.append(f"  > <b>Raíz</b>: {result['root']:.8f}")
+                            self.ui.result_roots.append(f"  > <b>Iteraciones</b>: {result['iterations']}")
+                            self.ui.result_roots.append(f"  > <b>Error</b>: {result['final_error']:.2e}")
+                            self.ui.result_roots.append("<br>")
+                        
+                        self.math_methods.populate_table_newton(
+                            self.ui.tabla_iteraciones, result['iterations_data']
+                        )
+                        
+                        # Separador visual
+                        if root_num < len(initial_values):
+                            self._add_table_separator()
+                        
+                        print(f"  > {result['message']}")
+                else:
+                    print(f"  > {result['error']}")
+            
+            if found_roots:
+                self.ui.resultados.setCurrentIndex(1)
+                print(f"Total de raíces únicas encontradas: {len(found_roots)}")
+            else:
+                print("No se encontraron raíces con Newton-Raphson.")
+                if hasattr(self.ui, 'result_roots'):
+                    self.ui.result_roots.append("No se encontraron raíces en el rango especificado.")
+        else:
+            print("No se encontraron valores iniciales adecuados.")
+            if hasattr(self.ui, 'result_roots'):
+                self.ui.result_roots.append("No se pudieron encontrar valores iniciales adecuados.")
+
+    def _add_table_separator(self):
+        """Agrega filas de separación visual en la tabla"""
+        from PySide6.QtWidgets import QTableWidgetItem
+        from PySide6.QtGui import QColor
+        
+        for _ in range(2):
+            row_count = self.ui.tabla_iteraciones.rowCount()
+            self.ui.tabla_iteraciones.insertRow(row_count)
+            for col in range(self.ui.tabla_iteraciones.columnCount()):
+                item = QTableWidgetItem("")
+                item.setBackground(QColor('#FFFFFF'))
+                self.ui.tabla_iteraciones.setItem(row_count, col, item)
+    
+    def display_current_method_info(self):
+        """
+        Muestra información sobre el método y configuración actual.
+        Puedes llamar esto después de process_solve() para informar al usuario.
+        """
+        method_name = "Bisección" if self.settings['method'] == 'biseccion' else "Newton-Raphson"
+        interval_type = "Automático" if self.settings['auto_interval'] else "Personalizado"
+        
+        info_text = f"""
+        <div style='background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin: 5px;'>
+            <b>Método:</b> {method_name}<br>
+            <b>Tolerancia:</b> {self.settings['tolerance']:.2e}<br>
+            <b>Máx. Iteraciones:</b> {self.settings['max_iterations']}<br>
+            <b>Intervalo:</b> {interval_type}
+        </div>
+        """
+        
+        # Si tienes un label o text widget para mostrar info, úsalo aquí
+        if hasattr(self.ui, 'method_info_label'):
+            self.ui.method_info_label.setText(info_text)
+        
+        print(f"\n{'='*50}")
+        print(f"CONFIGURACIÓN ACTUAL")
+        print(f"{'='*50}")
+        print(f"Método: {method_name}")
+        print(f"Tolerancia: {self.settings['tolerance']:.2e}")
+        print(f"Máx. Iteraciones: {self.settings['max_iterations']}")
+        print(f"Tipo de Intervalo: {interval_type}")
+        if not self.settings['auto_interval']:
+            print(f"Rango: [{self.settings['interval_start']}, {self.settings['interval_end']}]")
+            print(f"Paso: {self.settings['interval_step']}")
+        print(f"{'='*50}\n")

@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from form_ui import Ui_MathRoots
 from logic.mathroots_controller import MathRootsController
 from logic.graphic import Graphic
-from logic.table_styles import TableStyleManager  # Importar el gestor de estilos
+from logic.table_styles import TableStyleManager  
 
 class MathRoots(QMainWindow):
     def __init__(self):
