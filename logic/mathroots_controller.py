@@ -20,6 +20,7 @@ class MathRootsController(QObject):
         self.voice_worker = None
         self.math_methods = MathMethods()
         self.graphics = None
+        self.settings_widget = None  # Se inicializará cuando se necesite
 
         self.settings = {
             'method': 'biseccion',
@@ -33,7 +34,7 @@ class MathRootsController(QObject):
 
         self.setup_connections()
         self.setup_iterations_table()
-
+        self._apply_result_roots_style()
 
     def set_graphics(self, graphics):
         """Establece la referencia al objeto Graphic"""
@@ -45,14 +46,53 @@ class MathRootsController(QObject):
         self.ui.load_image.clicked.connect(self.load_image)
         self.ui.input_voice.clicked.connect(self.voice_mode)
         self.ui.solve.clicked.connect(self.process_solve)
-        self.ui.solve_3.clicked.connect(self.process_solve)  # ← CAMBIAR ESTA LÍNEA
+        self.ui.solve_3.clicked.connect(self.process_solve)
         self.ui.resultado_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.resultado_2))
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
 
+        # Conectar el botón de configuraciones
         if hasattr(self.ui, 'settings'):
             self.ui.settings.clicked.connect(self.open_settings)
+
+    def open_settings(self):
+        """Abre el widget de configuraciones en el stackedWidget resultados"""
+        from ui.settings_widget import SettingsWidget
+        
+        # Si no existe el widget, crearlo
+        if self.settings_widget is None:
+            self.settings_widget = SettingsWidget(current_settings=self.settings)
+            self.settings_widget.settings_saved.connect(self._on_settings_saved)
+            
+            # Agregar el widget al stackedWidget 'resultados'
+            # Asumiendo que 'resultados' es tu QStackedWidget
+            if hasattr(self.ui, 'resultados'):
+                self.ui.resultados.addWidget(self.settings_widget)
+                self.settings_index = self.ui.resultados.count() - 1
+            else:
+                print("Error: No se encuentra el stackedWidget 'resultados'")
+                return
+        else:
+            # Actualizar las configuraciones en el widget existente
+            self.settings_widget.update_settings(self.settings)
+        
+        # Cambiar a la página de configuraciones
+        if hasattr(self.ui, 'resultados'):
+            self.ui.resultados.setCurrentWidget(self.settings_widget)
+            print("Mostrando widget de configuraciones")
+
+    def _on_settings_saved(self, new_settings):
+        """Callback cuando se guardan nuevas configuraciones"""
+        self.settings = new_settings.copy()
+        print("Configuraciones actualizadas en el controlador")
+        
+        # Actualizar encabezados de tabla según el método
+        self.update_table_headers_for_method()
+        
+        # Opcional: Volver a la vista de resultados después de guardar
+        # if hasattr(self.ui, 'resultados'):
+        #     self.ui.resultados.setCurrentIndex(1)  # O el índice que prefieras
 
     def graficar_ecuacion_actual(self):
         """Grafica la ecuación actual almacenada en math_methods"""
@@ -64,14 +104,8 @@ class MathRootsController(QObject):
             ecuacion_grafica = self.math_methods.get_equation_for_plot()
             
             if ecuacion_grafica:
-                # Dibuja la función en un rango amplio.
-                # Esta línea se encarga de crear los datos.
                 self.graphics.graficar_funcion(ecuacion_grafica, x_min=-50, x_max=50, limpiar=True)
-
-                # AHORA, para asegurarnos de que el rango de la vista no se modifique
-                # por otras acciones (como graficar la raíz), lo fijamos explícitamente.
                 self.graphics.set_rango(x_min=-50, x_max=50, y_min=-50, y_max=50)
-
                 print(f"Ecuación graficada: {ecuacion_grafica}")
         except Exception as e:
             print(f"Error al graficar: {e}")
@@ -81,10 +115,9 @@ class MathRootsController(QObject):
         if hasattr(self.ui, 'tabla_iteraciones'):
             self.ui.tabla_iteraciones.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
             
-            # Usar el método actual de las configuraciones
             if self.settings['method'] == 'biseccion':
                 headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
-            else:  # newton
+            else:
                 headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
             
             self.ui.tabla_iteraciones.setColumnCount(len(headers))
@@ -96,113 +129,19 @@ class MathRootsController(QObject):
             
             print(f"Tabla de iteraciones configurada para método: {self.settings['method']}")
 
-    def update_iterations_table(self):
-        """Actualiza la tabla de iteraciones con los datos del método de bisección"""
-        if hasattr(self.ui, 'tabla_iteraciones'):
-            try:
-                self.math_methods.populate_table(self.ui.tabla_iteraciones)
-                print("Tabla de iteraciones actualizada")
-            except Exception as e:
-                print(f"Error actualizando tabla de iteraciones: {e}")
-
-    def execute_bisection_method(self, a: float, b: float, tolerance: float = 1e-6, max_iterations: int = 100):
-        """
-        Ejecuta el método de bisección y actualiza la tabla de iteraciones
-        """
-        try:
-            if not self.math_methods.equation.strip():
-                print("No hay ecuación para resolver")
-                return
-            
-            print(f"Ejecutando método de bisección para: {self.math_methods.equation}")
-            print(f"Intervalo: [{a}, {b}], Tolerancia: {tolerance}")
-            
-            result = self.math_methods.bisection_method(a, b, tolerance, max_iterations)
-            self.update_iterations_table()
-            
-            if result['success']:
-                print(f"{result['message']}")
-                
-                if hasattr(self.ui, 'resultado_label'):
-                    self.ui.resultado_label.setText(f"Raíz: {result['root']:.8f}")
-                
-                stats = self.math_methods.get_summary_statistics()
-                if stats:
-                    print(f"Estadísticas:")
-                    print(f"   - Iteraciones totales: {stats['total_iterations']}")
-                    print(f"   - Raíz final: {stats['final_root']:.8f}")
-                    print(f"   - Error final: {stats['final_error']:.2e}")
-                    print(f"   - Valor de función: {stats['final_function_value']:.2e}")
-            else:
-                print(f"{result['error']}")
-            
-        except Exception as e:
-            print(f"Error ejecutando bisección: {e}")
-
-    def auto_find_and_solve(self):
-        """
-        Busca automáticamente todos los intervalos adecuados y ejecuta bisección para cada uno,
-        agregando una separación visual en la tabla para cada raíz encontrada.
-        """
-        try:
-            if not self.math_methods.equation.strip():
-                print("No hay ecuación para resolver")
-                return
-            
-            self.clear_iterations_table()
-            
-            # Limpia el widget de resultados antes de cada ejecución
-            if hasattr(self.ui, 'result_roots'):
-                self.ui.result_roots.clear()
-
-            print("Buscando intervalos automáticamente...")
-            
-            all_intervals = self.math_methods.find_all_suitable_intervals(start=-100, end=100, step=0.1)
-            
-            if all_intervals:
-                print(f"Se encontraron {len(all_intervals)} intervalos adecuados.")
-                
-                for i, interval in enumerate(all_intervals):
-                    a, b = interval
-                    print(f"Resolviendo para la posible raíz #{i+1} en el intervalo: [{a:.2f}, {b:.2f}]")
-                    
-                    result = self.math_methods.bisection_method(a, b)
-                    
-                    # Añadir resultados al panel de texto
-                    if hasattr(self.ui, 'result_roots'):
-                        self.ui.result_roots.append(f"<b>Raíz #{i+1}</b>")
-                        self.ui.result_roots.append(f"  > <b>Raíz</b>: {result['root']:.8f}")
-                        self.ui.result_roots.append(f"  > <b>Iteraciones</b>: {result['iterations']}")
-                        self.ui.result_roots.append(f"  > <b>Error Aproximado</b>: {result['final_error']:.2e}")
-                        self.ui.result_roots.append("<br>") # Salto de línea para separar visualmente
-                    
-                    if result['success'] or (not result['success'] and result['iterations'] > 0):
-                        self.math_methods.populate_table_rows(self.ui.tabla_iteraciones, result['iterations_data'])
-                        
-                        if i < len(all_intervals) - 1:
-                            for _ in range(2):
-                                row_count = self.ui.tabla_iteraciones.rowCount()
-                                self.ui.tabla_iteraciones.insertRow(row_count)
-                                for col in range(self.ui.tabla_iteraciones.columnCount()):
-                                    item = QTableWidgetItem("")
-                                    item.setBackground(QColor('#FFFFFF'))
-                                    self.ui.tabla_iteraciones.setItem(row_count, col, item)
-                    
-                    if result['success']:
-                        print(f"  > {result['message']}")
-                    else:
-                        print(f"  > {result['error']}")
-                        
-                self.ui.resultados.setCurrentIndex(1)
-            else:
-                print("No se pudo encontrar un intervalo adecuado automáticamente.")
-                if hasattr(self.ui, 'result_roots'):
-                    self.ui.result_roots.append("No se encontró una raíz en el rango predeterminado.")
-                    
-        except Exception as e:
-            print(f"Error en búsqueda automática: {e}")
-            if hasattr(self.ui, 'result_roots'):
-                self.ui.result_roots.append(f"Error: {str(e)}")
+    def update_table_headers_for_method(self):
+        """Actualiza los encabezados de la tabla según el método seleccionado"""
+        if not hasattr(self.ui, 'tabla_iteraciones'):
+            return
+        
+        if self.settings['method'] == 'biseccion':
+            headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
+        else:
+            headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
+        
+        self.ui.tabla_iteraciones.setColumnCount(len(headers))
+        self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
+        print(f"Encabezados de tabla actualizados para método: {self.settings['method']}")
 
     def clear_iterations_table(self):
         """Limpia la tabla de iteraciones"""
@@ -247,10 +186,8 @@ class MathRootsController(QObject):
         elif boton_seleccionado == self.ui.grafica_2:
             self.ui.resultados.setCurrentIndex(2)
 
-
     def process_solve(self):
         """Función que se ejecuta al hacer click en 'solve' o 'solve_3'"""
-        # Intentar leer de ambos inputs posibles
         if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
             input_text = self.ui.input_3.toPlainText().strip()
         else:
@@ -262,17 +199,13 @@ class MathRootsController(QObject):
         
         self.math_methods.equation = input_text
         
-        # Sincronizar ambos inputs
         if hasattr(self.ui, 'input_3'):
             self.ui.input_3.setPlainText(input_text)
         self.ui.input.setPlainText(input_text)
         
         print(f"La ecuación capturada es: {self.math_methods.equation}")
         
-        # AGREGAR: Mostrar configuración actual
         self.display_current_method_info()
-        
-        # AGREGAR: Actualizar encabezados de tabla según método
         self.update_table_headers_for_method()
         
         validation = self.math_methods.validate_equation()
@@ -475,19 +408,13 @@ class MathRootsController(QObject):
         self._cleanup_voice_worker()
 
     def _clean_latex_exponents(self, latex_string: str) -> str:
-        """
-        Elimina las llaves de los exponentes en una cadena de LaTeX si son innecesarias.
-        Ejemplo: 'x^{3}' -> 'x^3'
-        """
+        """Elimina las llaves de los exponentes en una cadena de LaTeX si son innecesarias."""
         return re.sub(r'\^\{(.*?)\}', r'^\1', latex_string)
 
     def _process_voice_text(self, text: str) -> str:
-        """
-        Procesa el texto transcribido de la voz para convertirlo a una notación matemática más formal.
-        """
+        """Procesa el texto transcribido de la voz para convertirlo a una notación matemática más formal."""
         processed_text = text.lower()
         
-        # Reemplazos de operadores y funciones simples
         processed_text = processed_text.replace("más", "+")
         processed_text = processed_text.replace("menos", "-")
         processed_text = processed_text.replace("por", "*")
@@ -495,48 +422,14 @@ class MathRootsController(QObject):
         processed_text = processed_text.replace("igual a", "=")
         processed_text = processed_text.replace("raíz cuadrada", "\\sqrt")
 
-        # Reemplazos de exponentes y otras expresiones usando Regex
         processed_text = re.sub(r'(\w+)\s+cuadrada', r'\1^2', processed_text)
         processed_text = re.sub(r'(\w+)\s+cúbica', r'\1^3', processed_text)
         processed_text = re.sub(r'(\w)\s*cuadrada', r'\1^2', processed_text)
         
         return processed_text
-    
-    def open_settings(self):
-        """Abre la ventana de configuraciones"""
-        from ui.settings_dialog import SettingsDialog
-        
-        dialog = SettingsDialog(parent=None, current_settings=self.settings)
-        dialog.settings_saved.connect(self._on_settings_saved)
-        dialog.exec()
-
-    def _on_settings_saved(self, new_settings):
-        """Callback cuando se guardan nuevas configuraciones"""
-        self.settings = new_settings.copy()
-        print("Configuraciones actualizadas en el controlador")
-        
-        # Actualizar encabezados de tabla según el método
-        self.update_table_headers_for_method()
-
-    def update_table_headers_for_method(self):
-        """Actualiza los encabezados de la tabla según el método seleccionado"""
-        if not hasattr(self.ui, 'tabla_iteraciones'):
-            return
-        
-        if self.settings['method'] == 'biseccion':
-            headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
-        else:  # newton
-            headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
-        
-        self.ui.tabla_iteraciones.setColumnCount(len(headers))
-        self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
-        print(f"Encabezados de tabla actualizados para método: {self.settings['method']}")
 
     def auto_find_and_solve(self):
-        """
-        Busca automáticamente intervalos/valores iniciales y ejecuta el método seleccionado.
-        Versión mejorada que usa las configuraciones.
-        """
+        """Busca automáticamente intervalos/valores iniciales y ejecuta el método seleccionado."""
         try:
             if not self.math_methods.equation.strip():
                 print("No hay ecuación para resolver")
@@ -544,7 +437,6 @@ class MathRootsController(QObject):
             
             self.clear_iterations_table()
             
-            # Limpia el widget de resultados
             if hasattr(self.ui, 'result_roots'):
                 self.ui.result_roots.clear()
             
@@ -557,7 +449,7 @@ class MathRootsController(QObject):
             
             if method == 'biseccion':
                 self._solve_with_bisection(tolerance, max_iterations)
-            else:  # newton
+            else:
                 self._solve_with_newton(tolerance, max_iterations)
                 
         except Exception as e:
@@ -591,20 +483,19 @@ class MathRootsController(QObject):
                 
                 result = self.math_methods.bisection_method(a, b, tolerance, max_iterations)
                 
-                # Añadir resultados al panel
                 if hasattr(self.ui, 'result_roots'):
-                    self.ui.result_roots.append(f"<b>Raíz #{i+1}</b>")
-                    self.ui.result_roots.append(f"  > <b>Raíz</b>: {result['root']:.8f}")
-                    self.ui.result_roots.append(f"  > <b>Iteraciones</b>: {result['iterations']}")
-                    self.ui.result_roots.append(f"  > <b>Error</b>: {result['final_error']:.2e}")
+                    self.ui.result_roots.append(f"<b style='color: #828282;'>Raíz {i+1}</b>")
+                    self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
+                    self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
+                    self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
                     self.ui.result_roots.append("<br>")
+                    self.ui.result_roots.verticalScrollBar().setValue(0)
                 
                 if result['success'] or (not result['success'] and result['iterations'] > 0):
                     self.math_methods.populate_table_rows(
                         self.ui.tabla_iteraciones, result['iterations_data']
                     )
                     
-                    # Separador visual
                     if i < len(all_intervals) - 1:
                         self._add_table_separator()
                 
@@ -626,7 +517,7 @@ class MathRootsController(QObject):
         if self.settings['auto_interval']:
             start = self.settings['interval_start']
             end = self.settings['interval_end']
-            step = self.settings['interval_step'] * 10  # Paso más grande para Newton
+            step = self.settings['interval_step'] * 10
         else:
             start = self.settings['interval_start']
             end = self.settings['interval_end']
@@ -639,9 +530,8 @@ class MathRootsController(QObject):
         if initial_values:
             print(f"Se encontraron {len(initial_values)} valores iniciales.")
             
-            # Para evitar encontrar la misma raíz múltiples veces
             found_roots = []
-            root_tolerance = 0.01  # Considera raíces iguales si están a menos de esta distancia
+            root_tolerance = 0.01
             
             for i, x0 in enumerate(initial_values):
                 print(f"Probando con x₀ = {x0:.2f}")
@@ -649,7 +539,6 @@ class MathRootsController(QObject):
                 result = self.math_methods.newton_raphson_method(x0, tolerance, max_iterations)
                 
                 if result['success']:
-                    # Verificar si ya encontramos esta raíz
                     is_duplicate = False
                     for existing_root in found_roots:
                         if abs(result['root'] - existing_root) < root_tolerance:
@@ -661,19 +550,18 @@ class MathRootsController(QObject):
                         found_roots.append(result['root'])
                         root_num = len(found_roots)
                         
-                        # Añadir resultados
                         if hasattr(self.ui, 'result_roots'):
-                            self.ui.result_roots.append(f"<b>Raíz #{root_num}</b>")
-                            self.ui.result_roots.append(f"  > <b>Raíz</b>: {result['root']:.8f}")
-                            self.ui.result_roots.append(f"  > <b>Iteraciones</b>: {result['iterations']}")
-                            self.ui.result_roots.append(f"  > <b>Error</b>: {result['final_error']:.2e}")
+                            self.ui.result_roots.append(f"<b style='color: #828282;'>Raíz {i+1}</b>")
+                            self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
+                            self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
+                            self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
                             self.ui.result_roots.append("<br>")
+                            self.ui.result_roots.verticalScrollBar().setValue(0)
                         
                         self.math_methods.populate_table_newton(
                             self.ui.tabla_iteraciones, result['iterations_data']
                         )
                         
-                        # Separador visual
                         if root_num < len(initial_values):
                             self._add_table_separator()
                         
@@ -695,9 +583,6 @@ class MathRootsController(QObject):
 
     def _add_table_separator(self):
         """Agrega filas de separación visual en la tabla"""
-        from PySide6.QtWidgets import QTableWidgetItem
-        from PySide6.QtGui import QColor
-        
         for _ in range(2):
             row_count = self.ui.tabla_iteraciones.rowCount()
             self.ui.tabla_iteraciones.insertRow(row_count)
@@ -707,10 +592,7 @@ class MathRootsController(QObject):
                 self.ui.tabla_iteraciones.setItem(row_count, col, item)
     
     def display_current_method_info(self):
-        """
-        Muestra información sobre el método y configuración actual.
-        Puedes llamar esto después de process_solve() para informar al usuario.
-        """
+        """Muestra información sobre el método y configuración actual."""
         method_name = "Bisección" if self.settings['method'] == 'biseccion' else "Newton-Raphson"
         interval_type = "Automático" if self.settings['auto_interval'] else "Personalizado"
         
@@ -723,7 +605,6 @@ class MathRootsController(QObject):
         </div>
         """
         
-        # Si tienes un label o text widget para mostrar info, úsalo aquí
         if hasattr(self.ui, 'method_info_label'):
             self.ui.method_info_label.setText(info_text)
         
@@ -738,3 +619,101 @@ class MathRootsController(QObject):
             print(f"Rango: [{self.settings['interval_start']}, {self.settings['interval_end']}]")
             print(f"Paso: {self.settings['interval_step']}")
         print(f"{'='*50}\n")
+
+    def _apply_result_roots_style(self):
+        """Aplica estilos personalizados al widget result_roots"""
+        if hasattr(self.ui, 'result_roots'):
+            self.ui.result_roots.setStyleSheet("""
+                QTextEdit, QTextBrowser {
+                    background-color: #FFFFFF;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 15px;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-size: 22px;
+                    color: #333333;
+                }
+                
+                /* Estilo para la barra de desplazamiento vertical */
+                QTextEdit QScrollBar:vertical, 
+                QTextBrowser QScrollBar:vertical {
+                    border: none;
+                    background: #f0f0f0;
+                    width: 10px;
+                    margin: 0;
+                    border-radius: 5px;
+                }
+                
+                /* Estilo para el handle (pulgar) de la barra */
+                QTextEdit QScrollBar::handle:vertical,
+                QTextBrowser QScrollBar::handle:vertical {
+                    background-color: #CD1C18;
+                    border-radius: 5px;
+                    min-height: 20px;
+                }
+
+                /* Hover effect en el handle */
+                QTextEdit QScrollBar::handle:vertical:hover,
+                QTextBrowser QScrollBar::handle:vertical:hover {
+                    background-color: #a81614;
+                }
+
+                /* Pressed effect en el handle */
+                QTextEdit QScrollBar::handle:vertical:pressed,
+                QTextBrowser QScrollBar::handle:vertical:pressed {
+                    background-color: #8a1210;
+                }
+
+                /* Ocultar los botones de flecha */
+                QTextEdit QScrollBar::add-line:vertical,
+                QTextEdit QScrollBar::sub-line:vertical,
+                QTextBrowser QScrollBar::add-line:vertical,
+                QTextBrowser QScrollBar::sub-line:vertical {
+                    border: none;
+                    background: none;
+                    height: 0;
+                    width: 0;
+                }
+                
+                /* Zona antes y después del handle */
+                QTextEdit QScrollBar::add-page:vertical,
+                QTextEdit QScrollBar::sub-page:vertical,
+                QTextBrowser QScrollBar::add-page:vertical,
+                QTextBrowser QScrollBar::sub-page:vertical {
+                    background: none;
+                }
+
+                /* Barra de desplazamiento horizontal (opcional) */
+                QTextEdit QScrollBar:horizontal,
+                QTextBrowser QScrollBar:horizontal {
+                    border: none;
+                    background: #f0f0f0;
+                    height: 10px;
+                    margin: 0;
+                    border-radius: 5px;
+                }
+
+                QTextEdit QScrollBar::handle:horizontal,
+                QTextBrowser QScrollBar::handle:horizontal {
+                    background-color: #CD1C18;
+                    border-radius: 5px;
+                    min-width: 20px;
+                }
+
+                QTextEdit QScrollBar::handle:horizontal:hover,
+                QTextBrowser QScrollBar::handle:horizontal:hover {
+                    background-color: #a81614;
+                }
+
+                /* Ocultar botones horizontales */
+                QTextEdit QScrollBar::add-line:horizontal,
+                QTextEdit QScrollBar::sub-line:horizontal,
+                QTextBrowser QScrollBar::add-line:horizontal,
+                QTextBrowser QScrollBar::sub-line:horizontal {
+                    border: none;
+                    background: none;
+                    height: 0;
+                    width: 0;
+                }
+            """)
+            print("Estilos aplicados a result_roots")

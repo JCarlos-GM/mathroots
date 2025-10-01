@@ -1296,7 +1296,7 @@ class Ui_MathRoots(object):
         self.resultadosW.setGeometry(QRect(0, 0, 1151, 501))
         self.label = QLabel(self.resultadosW)
         self.label.setObjectName(u"label")
-        self.label.setGeometry(QRect(20, 10, 421, 31))
+        self.label.setGeometry(QRect(30, 10, 421, 31))
         palette14 = QPalette()
         palette14.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.WindowText, brush2)
         palette14.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.Button, brush1)
@@ -1437,6 +1437,7 @@ class Ui_MathRoots(object):
         font8 = QFont()
         font8.setPointSize(18)
         self.result_roots.setFont(font8)
+        self.result_roots.setReadOnly(True)
         self.resultados.addWidget(self.result_page_1)
         self.graphic_page_3 = QWidget()
         self.graphic_page_3.setObjectName(u"graphic_page_3")
@@ -1589,7 +1590,7 @@ class Ui_MathRoots(object):
         self.solve.setDefault(False)
         self.HomeStackedWidgets.setCurrentIndex(1)
         self.solve_3.setDefault(False)
-        self.resultados.setCurrentIndex(0)
+        self.resultados.setCurrentIndex(1)
 
 
         QMetaObject.connectSlotsByName(MathRoots)
@@ -1666,7 +1667,7 @@ class Ui_MathRoots(object):
         self.tabla_iteraciones.setSortingEnabled(False)
         self.tabla_iteraciones.setSortingEnabled(__sortingEnabled)
 
-        self.label.setText(QCoreApplication.translate("MathRoots", u"Raices:", None))
+        self.label.setText(QCoreApplication.translate("MathRoots", u"Soluci\u00f3n:", None))
         self.settings.setText("")
         self.history.setText("")
         self.save.setText("")
