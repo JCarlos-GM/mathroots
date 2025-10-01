@@ -20,7 +20,7 @@ class Graphic(QObject):
         self.plot_widget = None
         self.funciones_graficadas = []
         self.colores = [
-            (46, 134, 222),  # Azul
+            (252, 3, 3),  # Rojo
             (231, 76, 60),  # Rojo
             (46, 204, 113),  # Verde
             (155, 89, 182),  # Morado
@@ -84,14 +84,14 @@ class Graphic(QObject):
         self.plot_widget.setBackground("w")
 
         # Mostrar rejilla
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.4)
 
         # Etiquetas de ejes
-        self.plot_widget.setLabel("left", "y", color="black", size="12pt")
-        self.plot_widget.setLabel("bottom", "x", color="black", size="12pt")
+        self.plot_widget.setLabel("left", "y", color="black", size="18pt")
+        self.plot_widget.setLabel("bottom", "x", color="black", size="18pt")
 
         # Título
-        self.plot_widget.setTitle("Gráfica de Funciones", color="black", size="14pt")
+        self.plot_widget.setTitle("Gráfica", color="black", size="20pt")
 
         # Agregar leyenda
         self.plot_widget.addLegend(offset=(10, 10))

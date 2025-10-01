@@ -1232,7 +1232,7 @@ class Ui_MathRoots(object):
 "")
         self.frame_7 = QFrame(self.background)
         self.frame_7.setObjectName(u"frame_7")
-        self.frame_7.setGeometry(QRect(50, 180, 1171, 521))
+        self.frame_7.setGeometry(QRect(50, 180, 1171, 551))
         self.frame_7.setStyleSheet(u"background-color: #FFFFFF;\n"
 "border-radius: 10px;\n"
 "border: none;")
@@ -1443,7 +1443,7 @@ class Ui_MathRoots(object):
         self.graphic_page_3.setObjectName(u"graphic_page_3")
         self.grafica_container = QWidget(self.graphic_page_3)
         self.grafica_container.setObjectName(u"grafica_container")
-        self.grafica_container.setGeometry(QRect(0, 0, 1151, 501))
+        self.grafica_container.setGeometry(QRect(0, 0, 1151, 531))
         self.resultados.addWidget(self.graphic_page_3)
         self.settings = QPushButton(self.background)
         self.settings.setObjectName(u"settings")
@@ -1590,7 +1590,7 @@ class Ui_MathRoots(object):
         self.solve.setDefault(False)
         self.HomeStackedWidgets.setCurrentIndex(1)
         self.solve_3.setDefault(False)
-        self.resultados.setCurrentIndex(1)
+        self.resultados.setCurrentIndex(2)
 
 
         QMetaObject.connectSlotsByName(MathRoots)

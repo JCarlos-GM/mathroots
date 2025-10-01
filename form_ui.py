@@ -1590,7 +1590,7 @@ class Ui_MathRoots(object):
         self.solve.setDefault(False)
         self.HomeStackedWidgets.setCurrentIndex(1)
         self.solve_3.setDefault(False)
-        self.resultados.setCurrentIndex(1)
+        self.resultados.setCurrentIndex(2)
 
 
         QMetaObject.connectSlotsByName(MathRoots)
