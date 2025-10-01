@@ -8443,8 +8443,8 @@ border: none;</string>
        </property>
        <property name="iconSize">
         <size>
-         <width>50</width>
-         <height>50</height>
+         <width>45</width>
+         <height>45</height>
         </size>
        </property>
       </widget>
@@ -8469,8 +8469,8 @@ border: none;</string>
        </property>
        <property name="iconSize">
         <size>
-         <width>50</width>
-         <height>50</height>
+         <width>45</width>
+         <height>45</height>
         </size>
        </property>
       </widget>
@@ -8495,8 +8495,8 @@ border: none;</string>
        </property>
        <property name="iconSize">
         <size>
-         <width>50</width>
-         <height>50</height>
+         <width>45</width>
+         <height>45</height>
         </size>
        </property>
       </widget>
