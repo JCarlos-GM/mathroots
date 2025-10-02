@@ -1,25 +1,31 @@
-from PySide6.QtCore import QObject, Qt, QTimer, QRect
+from PySide6.QtCore import QObject, Qt, QRect
 from PySide6.QtWidgets import (QFileDialog, QAbstractItemView, QTableWidgetItem,
-                               QDialog, QVBoxLayout, QLabel)
+                               QMessageBox, QDialog, QVBoxLayout, QLabel)
 from PySide6.QtGui import QPixmap, QColor, QPainter, QPen
 import os
 import re
 
-# Importamos la clase para el manejo matemático
+from fpdf import FPDF, FPDFException
+from fpdf.errors import FPDFUnicodeEncodingException
 from .math_methods import MathMethods
 from .ocr_worker import OCRWorker
 from .voice_worker import VoiceWorker
 from ui.voice_indicator import VoiceIndicatorDialogAdvanced
 
+from fpdf import FPDF
+# Asumiendo que custom_pdf.py existe y tiene estas clases
+from .custom_pdf import CustomPDF, create_report_cover
+
 class MathRootsController(QObject):
     """Controlador de la ventana principal MathRoots"""
-
-    def __init__(self, ui):
+    
+    def __init__(self, ui, main_window):
         super().__init__()
         self.ui = ui
         self.ocr_worker = None
+        self.main_window = main_window
         self.voice_worker = None
-        self.voice_indicator = None  # AGREGADO
+        self.voice_indicator = None
         self.math_methods = MathMethods()
         self.graphics = None
         self.settings_widget = None
@@ -38,12 +44,11 @@ class MathRootsController(QObject):
         self.setup_iterations_table()
         self._apply_result_roots_style()
 
+    # (Métodos anteriores omitidos por brevedad)
     def set_graphics(self, graphics):
-        """Establece la referencia al objeto Graphic"""
         self.graphics = graphics
 
     def setup_connections(self):
-        """Conecta los botones y otros eventos"""
         self.ui.input_image.clicked.connect(self.image_mode)
         self.ui.load_image.clicked.connect(self.load_image)
         self.ui.input_voice.clicked.connect(self.voice_mode)
@@ -54,19 +59,19 @@ class MathRootsController(QObject):
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
 
-        # NUEVAS CONEXIONES PARA BOTONES ALTERNATIVOS
+        if hasattr(self.ui, 'save'):
+            self.ui.save.clicked.connect(self.save_all_panels)
+
         if hasattr(self.ui, 'input_image_alt'):
             self.ui.input_image_alt.clicked.connect(self.load_image_direct)
         
         if hasattr(self.ui, 'input_voice_alt'):
             self.ui.input_voice_alt.clicked.connect(self.voice_mode_direct)
 
-        # Conectar el botón de configuraciones
         if hasattr(self.ui, 'settings'):
             self.ui.settings.clicked.connect(self.open_settings)
 
     def open_settings(self):
-        """Abre el widget de configuraciones en el stackedWidget resultados"""
         from ui.settings_widget import SettingsWidget
         
         if self.settings_widget is None:
@@ -87,13 +92,11 @@ class MathRootsController(QObject):
             print("Mostrando widget de configuraciones")
 
     def _on_settings_saved(self, new_settings):
-        """Callback cuando se guardan nuevas configuraciones"""
         self.settings = new_settings.copy()
         print("Configuraciones actualizadas en el controlador")
         self.update_table_headers_for_method()
 
     def graficar_ecuacion_actual(self):
-        """Grafica la ecuación actual almacenada en math_methods"""
         if self.graphics is None:
             print("Error: graphics no está inicializado")
             return
@@ -109,14 +112,13 @@ class MathRootsController(QObject):
             print(f"Error al graficar: {e}")
 
     def setup_iterations_table(self):
-        """Configura la tabla de iteraciones inicial"""
         if hasattr(self.ui, 'tabla_iteraciones'):
             self.ui.tabla_iteraciones.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
             
             if self.settings['method'] == 'biseccion':
-                headers = ['Iteración', '      xₗ', '     xᵣ', '     xₘ', '    f(xₗ)', '     f(xᵣ)', '     f(xₘ)', '  Error']
+                headers = ['Iteración', '      xₗ', '     xᵣ', '     xₘ', '    f(xₗ)', '     f(xᵣ)', '     f(xₘ)', '  Error']
             else:
-                headers = ['Iteración', '      xₗ', '     f(xₙ)', "     f'(xₙ)", '   xₙ₊₁', '  Error']
+                headers = ['Iteración', '      xₗ', '     f(xₙ)', "     f'(xₙ)", '   xₙ₊₁', '  Error']
             
             self.ui.tabla_iteraciones.setColumnCount(len(headers))
             self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
@@ -128,21 +130,19 @@ class MathRootsController(QObject):
             print(f"Tabla de iteraciones configurada para método: {self.settings['method']}")
 
     def update_table_headers_for_method(self):
-        """Actualiza los encabezados de la tabla según el método seleccionado"""
         if not hasattr(self.ui, 'tabla_iteraciones'):
             return
         
         if self.settings['method'] == 'biseccion':
-            headers = ['Iteración', '      xₗ', '      xᵣ', '      xₘ', '      f(xₗ)', '      f(xᵣ)', '      f(xₘ)', '   Error']
+            headers = ['Iteración', '      xₗ', '      xᵣ', '      xₘ', '      f(xₗ)', '      f(xᵣ)', '      f(xₘ)', '   Error']
         else:
-            headers = ['Iteración', '      xₙ', '      f(xₙ)', "      f'(xₙ)", '     xₙ₊₁', '  Error']
+            headers = ['Iteración', '      xₙ', '      f(xₙ)', "      f'(xₙ)", '     xₙ₊₁', '  Error']
         
         self.ui.tabla_iteraciones.setColumnCount(len(headers))
         self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
         print(f"Encabezados de tabla actualizados para método: {self.settings['method']}")
 
     def clear_iterations_table(self):
-        """Limpia la tabla de iteraciones"""
         if hasattr(self.ui, 'tabla_iteraciones'):
             self.ui.tabla_iteraciones.setRowCount(0)
             self.math_methods.clear_iterations()
@@ -152,7 +152,6 @@ class MathRootsController(QObject):
         self.ui.stackedWidget.setCurrentIndex(2)
 
     def seleccionar_boton(self, boton_seleccionado):
-        """Actualiza el estado visual de los botones y cambia el panel"""
         botones = [self.ui.resultado_2, self.ui.procedimiento_2, self.ui.grafica_2]
         
         estilo_activo = """
@@ -192,7 +191,6 @@ class MathRootsController(QObject):
             self.ui.resultados.setCurrentIndex(2)
 
     def process_solve_keep_panel(self):
-        """Versión de process_solve que mantiene el panel actual (para solve_3)"""
         current_panel_index = self.ui.resultados.currentIndex()
         
         if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
@@ -234,7 +232,6 @@ class MathRootsController(QObject):
             print(f"No se puede ejecutar: {validation['error']}")
 
     def _update_button_styles_for_panel(self, panel_index):
-        """Actualiza los estilos de los botones según el panel actual"""
         estilo_activo = """
             QPushButton {
                 background-color: #CD1C18;
@@ -273,7 +270,6 @@ class MathRootsController(QObject):
         print(f"Estilos de botones actualizados para panel índice: {panel_index}")
 
     def process_solve(self):
-        """Función original que se ejecuta al hacer click en 'solve'"""
         if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
             input_text = self.ui.input_3.toPlainText().strip()
         else:
@@ -322,17 +318,12 @@ class MathRootsController(QObject):
         self.ui.HomeStackedWidgets.setCurrentIndex(1)
 
     def voice_mode(self):
-        """Cambia a la página de entrada de voz e inicia el reconocimiento"""
         self.ui.HomeStackedWidgets.setCurrentIndex(2)
-        
-        # AGREGAR: Crear y mostrar el diálogo indicador
         self.voice_indicator = VoiceIndicatorDialogAdvanced(None)
         self.voice_indicator.show()
-        
         self._start_voice_recognition()
     
     def load_image_direct(self):
-        """Carga y procesa una imagen directamente sin mostrarla (input_image_alt)"""
         file_path, _ = QFileDialog.getOpenFileName(
             None,
             "Selecciona una imagen",
@@ -350,7 +341,6 @@ class MathRootsController(QObject):
             print("No se seleccionó ningún archivo")
 
     def _start_ocr_processing_direct(self, image_path):
-        """Iniciar procesamiento OCR sin mostrar la imagen"""
         print(f"Archivo: {os.path.basename(image_path)}")
         print(f"Ruta: {image_path}")
         print("Modo: Procesamiento directo (sin visualización)")
@@ -362,7 +352,6 @@ class MathRootsController(QObject):
         self.ocr_worker.start()
 
     def _on_ocr_finished_direct(self, latex_result, method_used):
-        """Callback cuando OCR termina (versión directa)"""
         print(f"Motor usado: {method_used}")
         print("-" * 60)
         print("RESULTADO LATEX BRUTO:")
@@ -386,19 +375,15 @@ class MathRootsController(QObject):
         self._cleanup_worker()
 
     def voice_mode_direct(self):
-        """Inicia reconocimiento de voz directo con indicador (input_voice_alt)"""
         print("\n" + "="*60)
         print("RECONOCIMIENTO DE VOZ DIRECTO")
         print("="*60)
         
-        # Crear y mostrar el diálogo indicador SIN PADRE
-        self.voice_indicator = VoiceIndicatorDialog(None)  # ← CAMBIO AQUÍ
-        
-        self._start_voice_recognition_direct()
+        self.voice_indicator = VoiceIndicatorDialogAdvanced(None)
         self.voice_indicator.show()
+        self._start_voice_recognition_direct()
 
     def _start_voice_recognition_direct(self):
-        """Iniciar el procesamiento de reconocimiento de voz (versión directa)"""
         self.voice_worker = VoiceWorker()
         self.voice_worker.finished.connect(self._on_voice_finished_direct)
         self.voice_worker.error.connect(self._on_voice_error_direct)
@@ -406,11 +391,9 @@ class MathRootsController(QObject):
         self.voice_worker.start()
 
     def _on_voice_progress_direct(self, message):
-        """Callback para actualizaciones de progreso de la voz (versión directa)"""
         print(f"Progreso: {message}")
 
-    def _on_voice_finished(self, text_result, method_used):
-        """Callback cuando el reconocimiento de voz termina exitosamente"""
+    def _on_voice_finished_direct(self, text_result, method_used):
         print(f"Motor usado: {method_used}")
         print("-" * 60)
         print("RESULTADO DE LA TRANSCRIPCIÓN BRUTO:")
@@ -427,30 +410,25 @@ class MathRootsController(QObject):
         self.ui.input.setText(processed_text)
         print("="*60 + "\n")
 
-        # AGREGAR: Cerrar el diálogo indicador
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
             self.voice_indicator = None
 
         self._cleanup_voice_worker()
 
-    def _on_voice_error(self, error_message):
-        """Callback cuando el reconocimiento de voz falla"""
+    def _on_voice_error_direct(self, error_message):
         print("ERROR EN RECONOCIMIENTO DE VOZ")
         print("-" * 60)
         print(f"{error_message}")
         print("="*60 + "\n")
         
-        # AGREGAR: Cerrar el diálogo indicador
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
             self.voice_indicator = None
         
         self._cleanup_voice_worker()
 
-
     def load_image(self):
-        """Abre un file chooser para seleccionar una imagen"""
         file_path, _ = QFileDialog.getOpenFileName(
             None,
             "Selecciona una imagen",
@@ -466,7 +444,6 @@ class MathRootsController(QObject):
             print("No se seleccionó ningún archivo")
 
     def _display_image(self, file_path):
-        """Mostrar imagen en la interfaz"""
         try:
             self.ui.label_20.setVisible(False)
             pixmap = QPixmap(file_path)
@@ -489,7 +466,6 @@ class MathRootsController(QObject):
             print(f"Error al mostrar imagen: {e}")
 
     def _center_image_label(self, pixmap):
-        """Centrar el label de imagen en su contenedor"""
         parent = self.ui.image_icon.parent()
         if parent:
             parent_width = parent.width()
@@ -499,7 +475,6 @@ class MathRootsController(QObject):
             self.ui.image_icon.move(new_x, new_y)
 
     def _start_ocr_processing(self, image_path):
-        """Iniciar procesamiento OCR automáticamente"""
         print("\n" + "="*60)
         print("INICIANDO ANÁLISIS OCR")
         print("="*60)
@@ -513,7 +488,6 @@ class MathRootsController(QObject):
         self.ocr_worker.start()
 
     def _start_voice_recognition(self):
-        """Iniciar el procesamiento de reconocimiento de voz"""
         print("\n" + "="*60)
         print("INICIANDO RECONOCIMIENTO DE VOZ")
         print("="*60)
@@ -525,11 +499,9 @@ class MathRootsController(QObject):
         self.voice_worker.start()
 
     def _on_ocr_progress(self, message):
-        """Callback para actualizaciones de progreso del OCR"""
         print(f"{message}")
 
     def _on_ocr_finished(self, latex_result, method_used):
-        """Callback cuando OCR termina exitosamente"""
         print(f"Motor usado: {method_used}")
         print("-" * 60)
         print("RESULTADO LATEX BRUTO:")
@@ -553,13 +525,11 @@ class MathRootsController(QObject):
         self._cleanup_worker()
 
     def _on_voice_progress(self, message):
-        """Callback para actualizaciones de progreso de la voz"""
         print(f"{message}")
         if hasattr(self.ui, 'voice_status_label'):
             self.ui.voice_status_label.setText(message)
 
     def _on_voice_finished(self, text_result, method_used):
-        """Callback cuando el reconocimiento de voz termina exitosamente"""
         print(f"Motor usado: {method_used}")
         print("-" * 60)
         print("RESULTADO DE LA TRANSCRIPCIÓN BRUTO:")
@@ -579,7 +549,6 @@ class MathRootsController(QObject):
         self._cleanup_voice_worker()
 
     def _on_ocr_error(self, error_message):
-        """Callback cuando OCR falla"""
         print("ERROR EN PROCESAMIENTO")
         print("-" * 60)
         print(f"{error_message}")
@@ -588,7 +557,6 @@ class MathRootsController(QObject):
         self._cleanup_worker()
         
     def _on_voice_error(self, error_message):
-        """Callback cuando el reconocimiento de voz falla"""
         print("ERROR EN RECONOCIMIENTO DE VOZ")
         print("-" * 60)
         print(f"{error_message}")
@@ -597,19 +565,16 @@ class MathRootsController(QObject):
         self._cleanup_voice_worker()
 
     def _cleanup_worker(self):
-        """Limpiar recursos del worker thread (OCR)"""
         if self.ocr_worker:
             self.ocr_worker.deleteLater()
             self.ocr_worker = None
 
     def _cleanup_voice_worker(self):
-        """Limpiar recursos del worker thread (Voz)"""
         if self.voice_worker:
             self.voice_worker.deleteLater()
             self.voice_worker = None
 
     def cleanup(self):
-        """Limpiar recursos al cerrar la aplicación"""
         if self.ocr_worker and self.ocr_worker.isRunning():
             self.ocr_worker.quit()
             self.ocr_worker.wait()
@@ -620,34 +585,27 @@ class MathRootsController(QObject):
             self.voice_worker.wait()
         self._cleanup_voice_worker()
         
-        # Limpiar el indicador de voz
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
             self.voice_indicator = None
 
     def _clean_latex_exponents(self, latex_string: str) -> str:
-        """Elimina las llaves de los exponentes en una cadena de LaTeX si son innecesarias."""
         return re.sub(r'\^\{(.*?)\}', r'^\1', latex_string)
 
     def _process_voice_text(self, text: str) -> str:
-        """Procesa el texto transcribido de la voz para convertirlo a una notación matemática más formal."""
         processed_text = text.lower()
-        
         processed_text = processed_text.replace("más", "+")
         processed_text = processed_text.replace("menos", "-")
         processed_text = processed_text.replace("por", "*")
         processed_text = processed_text.replace("entre", "/")
         processed_text = processed_text.replace("igual a", "=")
         processed_text = processed_text.replace("raíz cuadrada", "\\sqrt")
-
         processed_text = re.sub(r'(\w+)\s+cuadrada', r'\1^2', processed_text)
         processed_text = re.sub(r'(\w+)\s+cúbica', r'\1^3', processed_text)
         processed_text = re.sub(r'(\w)\s*cuadrada', r'\1^2', processed_text)
-        
         return processed_text
 
     def auto_find_and_solve(self):
-        """Busca automáticamente intervalos/valores iniciales y ejecuta el método seleccionado."""
         try:
             if not self.math_methods.equation.strip():
                 print("No hay ecuación para resolver")
@@ -676,7 +634,6 @@ class MathRootsController(QObject):
                 self.ui.result_roots.append(f"Error: {str(e)}")
 
     def _solve_with_bisection(self, tolerance, max_iterations):
-        """Resuelve usando método de bisección"""
         print("Buscando intervalos automáticamente para Bisección...")
         
         if self.settings['auto_interval']:
@@ -703,9 +660,9 @@ class MathRootsController(QObject):
                 
                 if hasattr(self.ui, 'result_roots'):
                     self.ui.result_roots.append(f"<b style='color: #828282;'>Raíz {i+1}</b>")
-                    self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
-                    self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
-                    self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
+                    self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
+                    self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
+                    self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
                     self.ui.result_roots.append("<br>")
                     self.ui.result_roots.verticalScrollBar().setValue(0)
                 
@@ -718,9 +675,9 @@ class MathRootsController(QObject):
                         self._add_table_separator()
                 
                 if result['success']:
-                    print(f"  > {result['message']}")
+                    print(f"  > {result['message']}")
                 else:
-                    print(f"  > {result['error']}")
+                    print(f"  > {result['error']}")
             
             self.ui.resultados.setCurrentIndex(1)
         else:
@@ -729,7 +686,6 @@ class MathRootsController(QObject):
                 self.ui.result_roots.append("No se encontraron raíces en el rango especificado.")
 
     def _solve_with_newton(self, tolerance, max_iterations):
-        """Resuelve usando método de Newton-Raphson"""
         print("Buscando valores iniciales para Newton-Raphson...")
         
         if self.settings['auto_interval']:
@@ -761,7 +717,7 @@ class MathRootsController(QObject):
                     for existing_root in found_roots:
                         if abs(result['root'] - existing_root) < root_tolerance:
                             is_duplicate = True
-                            print(f"  > Raíz duplicada, saltando...")
+                            print(f"  > Raíz duplicada, saltando...")
                             break
                     
                     if not is_duplicate:
@@ -770,9 +726,9 @@ class MathRootsController(QObject):
                         
                         if hasattr(self.ui, 'result_roots'):
                             self.ui.result_roots.append(f"<b style='color: #828282;'>Raíz {i+1}</b>")
-                            self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
-                            self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
-                            self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
+                            self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
+                            self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
+                            self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
                             self.ui.result_roots.append("<br>")
                             self.ui.result_roots.verticalScrollBar().setValue(0)
                         
@@ -783,9 +739,9 @@ class MathRootsController(QObject):
                         if root_num < len(initial_values):
                             self._add_table_separator()
                         
-                        print(f"  > {result['message']}")
+                        print(f"  > {result['message']}")
                 else:
-                    print(f"  > {result['error']}")
+                    print(f"  > {result['error']}")
             
             if found_roots:
                 self.ui.resultados.setCurrentIndex(1)
@@ -800,7 +756,6 @@ class MathRootsController(QObject):
                 self.ui.result_roots.append("No se pudieron encontrar valores iniciales adecuados.")
 
     def _add_table_separator(self):
-        """Agrega filas de separación visual en la tabla"""
         for _ in range(2):
             row_count = self.ui.tabla_iteraciones.rowCount()
             self.ui.tabla_iteraciones.insertRow(row_count)
@@ -810,7 +765,6 @@ class MathRootsController(QObject):
                 self.ui.tabla_iteraciones.setItem(row_count, col, item)
     
     def display_current_method_info(self):
-        """Muestra información sobre el método y configuración actual."""
         method_name = "Bisección" if self.settings['method'] == 'biseccion' else "Newton-Raphson"
         interval_type = "Automático" if self.settings['auto_interval'] else "Personalizado"
         
@@ -839,7 +793,6 @@ class MathRootsController(QObject):
         print(f"{'='*50}\n")
 
     def _apply_result_roots_style(self):
-        """Aplica estilos personalizados al widget result_roots"""
         if hasattr(self.ui, 'result_roots'):
             self.ui.result_roots.setStyleSheet("""
                 QTextEdit, QTextBrowser {
@@ -935,3 +888,113 @@ class MathRootsController(QObject):
                 }
             """)
             print("Estilos aplicados a result_roots")
+    
+
+    def save_all_panels(self):
+        """
+        Genera un informe PDF completo, optimizando el flujo de contenido
+        para evitar páginas en blanco y colocar la gráfica en su propia página.
+        """
+        # 1. Obtener la ruta de guardado del archivo
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.main_window, "Guardar informe en PDF", "informe_raices.pdf", "Archivos PDF (*.pdf)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            # 2. Configurar el PDF
+            pdf = CustomPDF(title=f"Informe de Ecuación: {self.math_methods.equation}", filename=file_path)
+
+            # 3. Añadir la página de portada
+            create_report_cover(pdf, f"Análisis de la Ecuación: {self.math_methods.equation}")
+            
+            # 4. Añadir la información del método y la ecuación
+            # Añade una nueva página para el contenido principal
+            pdf.add_page()
+            
+            pdf.set_font("Arial", "B", 16)
+            pdf.cell(0, 10, "Configuración y Ecuación", ln=1, align='L')
+            pdf.set_font("Arial", "", 12)
+            
+            # Establece la posición X en el margen izquierdo para asegurar
+            # que el texto no se imprima fuera de la página
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(pdf.w - 2 * pdf.l_margin, 7, f"Ecuación: {self.math_methods.equation}")
+            
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(pdf.w - 2 * pdf.l_margin, 7, f"Método: {'Bisección' if self.settings['method'] == 'biseccion' else 'Newton-Raphson'}")
+            
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(pdf.w - 2 * pdf.l_margin, 7, f"Tolerancia: {self.settings['tolerance']:.2e}")
+            
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(pdf.w - 2 * pdf.l_margin, 7, f"Máx. Iteraciones: {self.settings['max_iterations']}")
+            
+            pdf.ln(10)
+
+            # 5. Añadir la tabla de iteraciones
+            if hasattr(self.ui, 'widget_5') and self.ui.tabla_iteraciones.rowCount() > 0:
+                pdf.set_font("Arial", "B", 16)
+                pdf.cell(0, 10, "Procedimiento (Tabla de Iteraciones)", ln=1, align='L')
+                pdf.ln(5)
+                
+                iterations_pixmap = self.ui.widget_5.grab()
+                temp_table_path = "temp_table.png"
+                iterations_pixmap.save(temp_table_path)
+                
+                with pdf.unbreakable():
+                    pdf.image(temp_table_path, w=pdf.w - 2 * pdf.l_margin)
+                    
+                os.remove(temp_table_path)
+                pdf.ln(10)
+            
+            # 6. Añadir el panel de resultados
+            if hasattr(self.ui, 'resultadosW'):
+                pdf.set_font("Arial", "B", 16)
+                pdf.cell(0, 10, "Resultados del Análisis", ln=1, align='L')
+                pdf.ln(5)
+                
+                results_text = self.ui.result_roots.toPlainText()
+                clean_text = results_text.replace("●", "-")
+                
+                pdf.set_font("Arial", "", 12)
+                pdf.multi_cell(pdf.w - 2 * pdf.l_margin, 7, clean_text)
+                pdf.ln(10)
+                
+            # 7. Añadir la gráfica en su propia página
+            if hasattr(self.ui, 'grafica_container') and self.math_methods.equation:
+                pdf.add_page()
+                
+                pdf.set_font("Arial", "B", 16)
+                pdf.cell(0, 10, "Gráfica de la Ecuación", ln=1, align='L')
+                pdf.ln(5)
+                
+                graphics_pixmap = self.ui.grafica_container.grab()
+                temp_graph_path = "temp_graph.png"
+                graphics_pixmap.save(temp_graph_path)
+                
+                with pdf.unbreakable():
+                    pdf.image(temp_graph_path, w=pdf.w - 2 * pdf.l_margin)
+                    
+                os.remove(temp_graph_path)
+            
+            # 8. Guardar el archivo
+            pdf.output(file_path)
+
+            # 9. Mostrar un mensaje de éxito
+            QMessageBox.information(
+                self.main_window, 
+                "Informe Guardado",
+                f"El informe se ha guardado correctamente en:\n`{file_path}`"
+            )
+            print(f"Informe guardado en: {file_path}")
+
+        except Exception as e:
+            QMessageBox.critical(
+                self.main_window, 
+                "Error al Guardar", 
+                f"Ocurrió un error al intentar guardar el PDF: {e}"
+            )
+            print(f"Error al guardar el PDF: {e}")

@@ -1586,7 +1586,7 @@ class Ui_MathRoots(object):
 
         self.stackedWidget.setCurrentIndex(1)
         self.solve.setDefault(False)
-        self.HomeStackedWidgets.setCurrentIndex(1)
+        self.HomeStackedWidgets.setCurrentIndex(0)
         self.solve_3.setDefault(False)
         self.resultados.setCurrentIndex(2)
 

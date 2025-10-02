@@ -133,7 +133,7 @@ border: none;</string>
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="page1">
      <widget class="QWidget" name="widget" native="true">
@@ -816,7 +816,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
 border: none;</string>
        </property>
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="Home_Page_1">
         <widget class="QWidget" name="widget_3" native="true">
@@ -7234,7 +7234,7 @@ border: none;</string>
          <enum>QFrame::Shadow::Raised</enum>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="procedure_page_2">
          <widget class="QWidget" name="widget_5" native="true">

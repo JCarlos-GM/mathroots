@@ -13,9 +13,9 @@ class MathRoots(QMainWindow):
         self.ui = Ui_MathRoots()
         self.ui.setupUi(self)
 
-        # Inicializa las clases de control, métodos y utilidades
-        self.controller = MathRootsController(self.ui)
-        self.graphics = Graphic(self.ui)   
+        # Pasa 'self' (la instancia de la ventana MathRoots) al controlador
+        self.controller = MathRootsController(self.ui, self) 
+        self.graphics = Graphic(self.ui)
 
         # Ajustes iniciales de las ventanas
         self.ui.stackedWidget.setCurrentIndex(0)
