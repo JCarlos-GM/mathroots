@@ -20,7 +20,7 @@ class MathRootsController(QObject):
         self.voice_worker = None
         self.math_methods = MathMethods()
         self.graphics = None
-        self.settings_widget = None  # Se inicializará cuando se necesite
+        self.settings_widget = None  
 
         self.settings = {
             'method': 'biseccion',
@@ -36,6 +36,8 @@ class MathRootsController(QObject):
         self.setup_iterations_table()
         self._apply_result_roots_style()
 
+        self._update_button_styles_for_panel(1)  # Comenzar en resultados
+
     def set_graphics(self, graphics):
         """Establece la referencia al objeto Graphic"""
         self.graphics = graphics
@@ -46,7 +48,7 @@ class MathRootsController(QObject):
         self.ui.load_image.clicked.connect(self.load_image)
         self.ui.input_voice.clicked.connect(self.voice_mode)
         self.ui.solve.clicked.connect(self.process_solve)
-        self.ui.solve_3.clicked.connect(self.process_solve)
+        self.ui.solve_3.clicked.connect(self.process_solve_keep_panel) 
         self.ui.resultado_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.resultado_2))
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
@@ -154,6 +156,7 @@ class MathRootsController(QObject):
         self.ui.stackedWidget.setCurrentIndex(2)
 
     def seleccionar_boton(self, boton_seleccionado):
+        """Actualiza el estado visual de los botones y cambia el panel"""
         botones = [self.ui.resultado_2, self.ui.procedimiento_2, self.ui.grafica_2]
         
         estilo_activo = """
@@ -161,6 +164,9 @@ class MathRootsController(QObject):
                 background-color: #CD1C18;
                 color: white;
                 border-radius: 25px;
+            }
+            QPushButton:hover {
+                background-color: #a81614;
             }
         """
         
@@ -171,20 +177,168 @@ class MathRootsController(QObject):
                 border-radius: 25px;
                 border: 2px solid #CD1C18;
             }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+            }
         """
         
+        # Actualizar estilos de todos los botones
         for boton in botones:
             if boton == boton_seleccionado:
                 boton.setStyleSheet(estilo_activo)
             else:
                 boton.setStyleSheet(estilo_inactivo)
 
+        # Cambiar el panel según el botón seleccionado
         if boton_seleccionado == self.ui.resultado_2:
             self.ui.resultados.setCurrentIndex(1)
         elif boton_seleccionado == self.ui.procedimiento_2:
             self.ui.resultados.setCurrentIndex(0)
         elif boton_seleccionado == self.ui.grafica_2:
             self.ui.resultados.setCurrentIndex(2)
+
+    def process_solve_keep_panel(self):
+        """
+        Versión de process_solve que mantiene el panel actual
+        (para el botón solve_3)
+        """
+        # Guardar el índice del panel actual
+        current_panel_index = self.ui.resultados.currentIndex()
+        
+        # Obtener el texto de entrada
+        if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
+            input_text = self.ui.input_3.toPlainText().strip()
+        else:
+            input_text = self.ui.input.toPlainText().strip()
+        
+        if not input_text:
+            print("No hay ecuación para resolver")
+            return
+        
+        self.math_methods.equation = input_text
+        
+        # Sincronizar ambos inputs
+        if hasattr(self.ui, 'input_3'):
+            self.ui.input_3.setPlainText(input_text)
+        self.ui.input.setPlainText(input_text)
+        
+        print(f"La ecuación capturada es: {self.math_methods.equation}")
+        
+        self.display_current_method_info()
+        self.update_table_headers_for_method()
+        
+        validation = self.math_methods.validate_equation()
+        if validation['valid']:
+            print(f"Ecuación válida: {validation['processed_equation']}")
+        else:
+            print(f"Ecuación inválida: {validation['error']}")
+        
+        # Cambiar a la página principal (índice 1)
+        self.change_main_index(1)
+        
+        if validation['valid']:
+            self.graficar_ecuacion_actual()
+            print(f"Ejecutando método: {self.settings['method'].upper()}")
+            self.auto_find_and_solve()
+            
+            # RESTAURAR el panel después de resolver
+            self.ui.resultados.setCurrentIndex(current_panel_index)
+            
+            # ACTUALIZAR el estado visual de los botones según el panel
+            self._update_button_styles_for_panel(current_panel_index)
+        else:
+            print(f"No se puede ejecutar: {validation['error']}")
+
+    def _update_button_styles_for_panel(self, panel_index):
+        """
+        Actualiza los estilos de los botones según el panel actual
+        
+        Args:
+            panel_index: 0=procedimiento, 1=resultados, 2=gráfica
+        """
+        estilo_activo = """
+            QPushButton {
+                background-color: #CD1C18;
+                color: white;
+                border-radius: 25px;
+            }
+            QPushButton:hover {
+                background-color: #a81614;
+            }
+        """
+        
+        estilo_inactivo = """
+            QPushButton {
+                background-color: #FFFFFF;
+                color: black;
+                border-radius: 25px;
+                border: 2px solid #CD1C18;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+            }
+        """
+        
+        # Mapeo de índice a botón
+        botones_map = {
+            0: self.ui.procedimiento_2,  # Procedimiento
+            1: self.ui.resultado_2,      # Resultados
+            2: self.ui.grafica_2         # Gráfica
+        }
+        
+        # Actualizar estilos
+        for idx, boton in botones_map.items():
+            if idx == panel_index:
+                boton.setStyleSheet(estilo_activo)
+            else:
+                boton.setStyleSheet(estilo_inactivo)
+        
+        print(f"Estilos de botones actualizados para panel índice: {panel_index}")
+
+    def process_solve(self):
+        """
+        Función original que se ejecuta al hacer click en 'solve'
+        (siempre va al panel de resultados)
+        """
+        if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
+            input_text = self.ui.input_3.toPlainText().strip()
+        else:
+            input_text = self.ui.input.toPlainText().strip()
+        
+        if not input_text:
+            print("No hay ecuación para resolver")
+            return
+        
+        self.math_methods.equation = input_text
+        
+        if hasattr(self.ui, 'input_3'):
+            self.ui.input_3.setPlainText(input_text)
+        self.ui.input.setPlainText(input_text)
+        
+        print(f"La ecuación capturada es: {self.math_methods.equation}")
+        
+        self.display_current_method_info()
+        self.update_table_headers_for_method()
+        
+        validation = self.math_methods.validate_equation()
+        if validation['valid']:
+            print(f"Ecuación válida: {validation['processed_equation']}")
+        else:
+            print(f"Ecuación inválida: {validation['error']}")
+        
+        self.change_main_index(1)
+        
+        if validation['valid']:
+            self.graficar_ecuacion_actual()
+            print(f"Ejecutando método: {self.settings['method'].upper()}")
+            self.auto_find_and_solve()
+            
+            # Siempre ir al panel de resultados
+            self.ui.resultados.setCurrentIndex(1)
+            # Actualizar botones para mostrar "resultado_2" activo
+            self._update_button_styles_for_panel(1)
+        else:
+            print(f"No se puede ejecutar: {validation['error']}")
 
     def process_solve(self):
         """Función que se ejecuta al hacer click en 'solve' o 'solve_3'"""
@@ -456,6 +610,21 @@ class MathRootsController(QObject):
             print(f"Error en búsqueda automática: {e}")
             if hasattr(self.ui, 'result_roots'):
                 self.ui.result_roots.append(f"Error: {str(e)}")
+
+    def get_current_panel_name(self):
+        """
+        Obtiene el nombre del panel actual como string
+        
+        Returns:
+            str: 'procedimiento', 'resultados' o 'grafica'
+        """
+        current_index = self.ui.resultados.currentIndex()
+        panel_names = {
+            0: 'procedimiento',
+            1: 'resultados',
+            2: 'grafica'
+        }
+        return panel_names.get(current_index, 'desconocido')
 
     def _solve_with_bisection(self, tolerance, max_iterations):
         """Resuelve usando método de bisección"""

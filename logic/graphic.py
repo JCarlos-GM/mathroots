@@ -91,7 +91,7 @@ class Graphic(QObject):
         self.plot_widget.setLabel("bottom", "x", color="black", size="18pt")
 
         # Título
-        self.plot_widget.setTitle("Gráfica", color="black", size="20pt")
+        self.plot_widget.setTitle("", color="black", size="20pt")
 
         # Agregar leyenda
         self.plot_widget.addLegend(offset=(10, 10))
