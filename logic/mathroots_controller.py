@@ -59,10 +59,10 @@ class MathRootsController(QObject):
         self.ui.resultado_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.resultado_2))
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
-        self.ui.info.clicked.connect(self.info_window)
+        self.ui.about.clicked.connect(self.info_window)
 
-        if hasattr(self.ui, 'about'): # Reemplaza 'about' si tu botón tiene otro nombre
-            self.ui.about.clicked.connect(self.show_about_dialog)
+        if hasattr(self.ui, 'info'): 
+            self.ui.info.clicked.connect(self.show_about_dialog)
 
         if hasattr(self.ui, 'history'):
             self.ui.history.clicked.connect(self.open_history)
@@ -72,9 +72,6 @@ class MathRootsController(QObject):
 
         if hasattr(self.ui, 'input_image_alt'):
             self.ui.input_image_alt.clicked.connect(self.load_image_direct)
-        
-        if hasattr(self.ui, 'input_voice_alt'):
-            self.ui.input_voice_alt.clicked.connect(self.voice_mode_direct)
 
         if hasattr(self.ui, 'settings'):
             self.ui.settings.clicked.connect(self.open_settings)
@@ -385,7 +382,10 @@ class MathRootsController(QObject):
         print("RECONOCIMIENTO DE VOZ DIRECTO")
         print("="*60)
         
-        # Ya no se crea ni se muestra el diálogo
+        # Crear y mostrar el indicador de voz
+        self.voice_indicator = VoiceIndicatorDialogAdvanced(self.main_window)
+        self.voice_indicator.show()
+        
         self._start_voice_recognition_direct()
 
     def _start_voice_recognition_direct(self):
@@ -397,9 +397,38 @@ class MathRootsController(QObject):
 
     def _on_voice_progress_direct(self, message):
         print(f"Progreso: {message}")
+        
+        # Actualizar el indicador de voz si existe
+        if hasattr(self, 'voice_indicator') and self.voice_indicator:
+            self.voice_indicator.update_status(message)
+        
         # Puedes mostrar el progreso en la barra de estado si tienes una
         if hasattr(self.ui, 'status_bar'):
             self.ui.status_bar.showMessage(message)
+
+    def _start_voice_recognition(self):
+        print("\n" + "="*60)
+        print("INICIANDO RECONOCIMIENTO DE VOZ")
+        print("="*60)
+
+        # Crear y mostrar el indicador de voz
+        self.voice_indicator = VoiceIndicatorDialogAdvanced(self.main_window)
+        self.voice_indicator.show()
+
+        self.voice_worker = VoiceWorker()
+        self.voice_worker.finished.connect(self._on_voice_finished)
+        self.voice_worker.error.connect(self._on_voice_error)
+        self.voice_worker.progress.connect(self._on_voice_progress)
+        self.voice_worker.start()
+
+    def _on_voice_progress(self, message):
+        print(f"{message}")
+        if hasattr(self.ui, 'voice_status_label'):
+            self.ui.voice_status_label.setText(message)
+        
+        # Actualizar el indicador de voz si existe
+        if hasattr(self, 'voice_indicator') and self.voice_indicator:
+            self.voice_indicator.update_status(message)
 
     def _on_voice_finished_direct(self, text_result, method_used):
         print(f"Motor usado: {method_used}")
@@ -417,26 +446,28 @@ class MathRootsController(QObject):
 
         self.ui.input.setText(processed_text)
         print("="*60 + "\n")
-        self._cleanup_voice_worker()
 
+        # Cerrar el indicador de voz
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
             self.voice_indicator = None
 
         self._cleanup_voice_worker()
+
 
     def _on_voice_error_direct(self, error_message):
         print("ERROR EN RECONOCIMIENTO DE VOZ")
         print("-" * 60)
         print(f"{error_message}")
         print("="*60 + "\n")
-        self._cleanup_voice_worker()
         
+        # Cerrar el indicador de voz
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
             self.voice_indicator = None
         
         self._cleanup_voice_worker()
+
 
     def load_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
