@@ -29,6 +29,7 @@ class MathRootsController(QObject):
         self.math_methods = MathMethods()
         self.graphics = None
         self.settings_widget = None
+        self.history_widget = None
 
         self.settings = {
             'method': 'biseccion',
@@ -58,6 +59,9 @@ class MathRootsController(QObject):
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
+
+        if hasattr(self.ui, 'history'):
+            self.ui.history.clicked.connect(self.open_history)
 
         if hasattr(self.ui, 'save'):
             self.ui.save.clicked.connect(self.save_all_panels)
@@ -319,10 +323,8 @@ class MathRootsController(QObject):
 
     def voice_mode(self):
         self.ui.HomeStackedWidgets.setCurrentIndex(2)
-        self.voice_indicator = VoiceIndicatorDialogAdvanced(None)
-        self.voice_indicator.show()
         self._start_voice_recognition()
-    
+
     def load_image_direct(self):
         file_path, _ = QFileDialog.getOpenFileName(
             None,
@@ -379,8 +381,7 @@ class MathRootsController(QObject):
         print("RECONOCIMIENTO DE VOZ DIRECTO")
         print("="*60)
         
-        self.voice_indicator = VoiceIndicatorDialogAdvanced(None)
-        self.voice_indicator.show()
+        # Ya no se crea ni se muestra el diálogo
         self._start_voice_recognition_direct()
 
     def _start_voice_recognition_direct(self):
@@ -392,6 +393,9 @@ class MathRootsController(QObject):
 
     def _on_voice_progress_direct(self, message):
         print(f"Progreso: {message}")
+        # Puedes mostrar el progreso en la barra de estado si tienes una
+        if hasattr(self.ui, 'status_bar'):
+            self.ui.status_bar.showMessage(message)
 
     def _on_voice_finished_direct(self, text_result, method_used):
         print(f"Motor usado: {method_used}")
@@ -409,6 +413,7 @@ class MathRootsController(QObject):
 
         self.ui.input.setText(processed_text)
         print("="*60 + "\n")
+        self._cleanup_voice_worker()
 
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
@@ -421,6 +426,7 @@ class MathRootsController(QObject):
         print("-" * 60)
         print(f"{error_message}")
         print("="*60 + "\n")
+        self._cleanup_voice_worker()
         
         if hasattr(self, 'voice_indicator') and self.voice_indicator:
             self.voice_indicator.close()
@@ -634,6 +640,7 @@ class MathRootsController(QObject):
                 self.ui.result_roots.append(f"Error: {str(e)}")
 
     def _solve_with_bisection(self, tolerance, max_iterations):
+        """Método de bisección modificado para guardar en historial"""
         print("Buscando intervalos automáticamente para Bisección...")
         
         if self.settings['auto_interval']:
@@ -649,6 +656,9 @@ class MathRootsController(QObject):
             start=start, end=end, step=step
         )
         
+        found_roots = []  # NUEVO: Lista para almacenar raíces
+        total_iterations = 0  # NUEVO: Contador de iteraciones
+        
         if all_intervals:
             print(f"Se encontraron {len(all_intervals)} intervalos adecuados.")
             
@@ -658,11 +668,16 @@ class MathRootsController(QObject):
                 
                 result = self.math_methods.bisection_method(a, b, tolerance, max_iterations)
                 
+                if result['success']:
+                    found_roots.append(result['root'])  # NUEVO: Guardar raíz
+                
+                total_iterations += result['iterations']  # NUEVO: Sumar iteraciones
+                
                 if hasattr(self.ui, 'result_roots'):
                     self.ui.result_roots.append(f"<b style='color: #828282;'>Raíz {i+1}</b>")
-                    self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
-                    self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
-                    self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
+                    self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
+                    self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
+                    self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
                     self.ui.result_roots.append("<br>")
                     self.ui.result_roots.verticalScrollBar().setValue(0)
                 
@@ -675,9 +690,20 @@ class MathRootsController(QObject):
                         self._add_table_separator()
                 
                 if result['success']:
-                    print(f"  > {result['message']}")
+                    print(f"  > {result['message']}")
                 else:
-                    print(f"  > {result['error']}")
+                    print(f"  > {result['error']}")
+            
+            # NUEVO: Guardar en historial si se encontraron raíces
+            if found_roots and self.history_widget is not None:
+                self.history_widget.add_history_entry(
+                    equation=self.math_methods.equation,
+                    method='Bisección',
+                    roots=found_roots,
+                    iterations=total_iterations,
+                    settings=self.settings.copy()
+                )
+                print(f"Entrada guardada en historial: {len(found_roots)} raíces encontradas")
             
             self.ui.resultados.setCurrentIndex(1)
         else:
@@ -685,7 +711,9 @@ class MathRootsController(QObject):
             if hasattr(self.ui, 'result_roots'):
                 self.ui.result_roots.append("No se encontraron raíces en el rango especificado.")
 
+
     def _solve_with_newton(self, tolerance, max_iterations):
+        """Método de Newton-Raphson modificado para guardar en historial"""
         print("Buscando valores iniciales para Newton-Raphson...")
         
         if self.settings['auto_interval']:
@@ -701,23 +729,26 @@ class MathRootsController(QObject):
             start=start, end=end, step=step, num_values=5
         )
         
+        found_roots = []
+        root_tolerance = 0.01
+        total_iterations = 0  # NUEVO: Contador de iteraciones
+        
         if initial_values:
             print(f"Se encontraron {len(initial_values)} valores iniciales.")
-            
-            found_roots = []
-            root_tolerance = 0.01
             
             for i, x0 in enumerate(initial_values):
                 print(f"Probando con x₀ = {x0:.2f}")
                 
                 result = self.math_methods.newton_raphson_method(x0, tolerance, max_iterations)
                 
+                total_iterations += result['iterations']  # NUEVO: Sumar iteraciones
+                
                 if result['success']:
                     is_duplicate = False
                     for existing_root in found_roots:
                         if abs(result['root'] - existing_root) < root_tolerance:
                             is_duplicate = True
-                            print(f"  > Raíz duplicada, saltando...")
+                            print(f"  > Raíz duplicada, saltando...")
                             break
                     
                     if not is_duplicate:
@@ -726,9 +757,9 @@ class MathRootsController(QObject):
                         
                         if hasattr(self.ui, 'result_roots'):
                             self.ui.result_roots.append(f"<b style='color: #828282;'>Raíz {i+1}</b>")
-                            self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
-                            self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
-                            self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
+                            self.ui.result_roots.append(f"  ●  <b>Raíz</b>: {result['root']:.8f}")
+                            self.ui.result_roots.append(f"  ●  <b>Iteraciones</b>: {result['iterations']}")
+                            self.ui.result_roots.append(f"  ●  <b>Error</b>: {result['final_error']:.20f}")
                             self.ui.result_roots.append("<br>")
                             self.ui.result_roots.verticalScrollBar().setValue(0)
                         
@@ -739,11 +770,22 @@ class MathRootsController(QObject):
                         if root_num < len(initial_values):
                             self._add_table_separator()
                         
-                        print(f"  > {result['message']}")
+                        print(f"  > {result['message']}")
                 else:
-                    print(f"  > {result['error']}")
+                    print(f"  > {result['error']}")
             
+            # NUEVO: Guardar en historial si se encontraron raíces
             if found_roots:
+                if self.history_widget is not None:
+                    self.history_widget.add_history_entry(
+                        equation=self.math_methods.equation,
+                        method='Newton-Raphson',
+                        roots=found_roots,
+                        iterations=total_iterations,
+                        settings=self.settings.copy()
+                    )
+                    print(f"Entrada guardada en historial: {len(found_roots)} raíces encontradas")
+                
                 self.ui.resultados.setCurrentIndex(1)
                 print(f"Total de raíces únicas encontradas: {len(found_roots)}")
             else:
@@ -754,6 +796,7 @@ class MathRootsController(QObject):
             print("No se encontraron valores iniciales adecuados.")
             if hasattr(self.ui, 'result_roots'):
                 self.ui.result_roots.append("No se pudieron encontrar valores iniciales adecuados.")
+                
 
     def _add_table_separator(self):
         for _ in range(2):
@@ -998,3 +1041,64 @@ class MathRootsController(QObject):
                 f"Ocurrió un error al intentar guardar el PDF: {e}"
             )
             print(f"Error al guardar el PDF: {e}")
+    
+    def open_history(self):
+        """Abre el widget de historial"""
+        from .history_widget import HistoryWidget
+        
+        if self.history_widget is None:
+            self.history_widget = HistoryWidget()
+            self.history_widget.equation_loaded.connect(self._on_history_equation_loaded)
+            
+            if hasattr(self.ui, 'resultados'):
+                self.ui.resultados.addWidget(self.history_widget)
+                self.history_index = self.ui.resultados.count() - 1
+            else:
+                print("Error: No se encuentra el stackedWidget 'resultados'")
+                return
+        else:
+            # Actualizar el historial si ya existe
+            self.history_widget.refresh_history()
+        
+        if hasattr(self.ui, 'resultados'):
+            self.ui.resultados.setCurrentWidget(self.history_widget)
+            print("Mostrando widget de historial")
+
+    def _on_history_equation_loaded(self, history_data: dict):
+        """
+        Maneja cuando se carga una ecuación desde el historial
+        
+        Args:
+            history_data: Diccionario con los datos del historial
+        """
+        equation = history_data.get('equation', '')
+        settings = history_data.get('settings', {})
+        
+        # Cargar la ecuación en los campos de entrada
+        if equation:
+            self.math_methods.equation = equation
+            self.ui.input.setPlainText(equation)
+            if hasattr(self.ui, 'input_3'):
+                self.ui.input_3.setPlainText(equation)
+            
+            print(f"Ecuación cargada desde historial: {equation}")
+        
+        # Aplicar configuraciones si están disponibles
+        if settings:
+            self.settings.update(settings)
+            print(f"Configuraciones cargadas: {settings.get('method', 'N/A')}")
+        
+        # Cambiar a la vista principal
+        self.change_main_index(1)
+        
+        # Opcional: Resolver automáticamente
+        reply = QMessageBox.question(
+            self.main_window,
+            "Resolver ecuación",
+            "¿Deseas resolver esta ecuación ahora?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.process_solve()

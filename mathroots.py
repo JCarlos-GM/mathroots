@@ -12,6 +12,7 @@ class MathRoots(QMainWindow):
         super().__init__()
         self.ui = Ui_MathRoots()
         self.ui.setupUi(self)
+        self.controller = MathRootsController(self.ui, self) 
 
         # Pasa 'self' (la instancia de la ventana MathRoots) al controlador
         self.controller = MathRootsController(self.ui, self) 

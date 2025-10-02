@@ -1,0 +1,38 @@
+[
+  {
+    "datetime": "02/10/2025 02:36:11",
+    "equation": "x^3+5x",
+    "method": "Bisección",
+    "roots": [
+      7.629380487761406e-07
+    ],
+    "total_iterations": 17,
+    "settings": {
+      "method": "biseccion",
+      "tolerance": 1e-06,
+      "max_iterations": 100,
+      "auto_interval": true,
+      "interval_start": -100,
+      "interval_end": 100,
+      "interval_step": 0.1
+    }
+  },
+  {
+    "datetime": "02/10/2025 02:33:42",
+    "equation": "x^3+2x",
+    "method": "Bisección",
+    "roots": [
+      7.629380487761406e-07
+    ],
+    "total_iterations": 17,
+    "settings": {
+      "method": "biseccion",
+      "tolerance": 1e-06,
+      "max_iterations": 100,
+      "auto_interval": true,
+      "interval_start": -100,
+      "interval_end": 100,
+      "interval_step": 0.1
+    }
+  }
+]
