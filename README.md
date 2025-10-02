@@ -110,3 +110,12 @@ pip install pillow
 ``` sh
 pip install lxml
 ```
+
+**Manejo de documentos PDF:**
+
+- **fpdf2**: Para generar el documento PDF
+
+``` sh
+pip install fpdf2
+```
+
