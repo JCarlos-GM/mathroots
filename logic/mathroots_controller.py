@@ -11,6 +11,7 @@ from .math_methods import MathMethods
 from .ocr_worker import OCRWorker
 from .voice_worker import VoiceWorker
 from ui.voice_indicator import VoiceIndicatorDialogAdvanced
+from ui.ui_about_v2 import Ui_Dialog
 
 from fpdf import FPDF
 # Asumiendo que custom_pdf.py existe y tiene estas clases
@@ -59,6 +60,9 @@ class MathRootsController(QObject):
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
+
+        if hasattr(self.ui, 'about'): # Reemplaza 'about' si tu botón tiene otro nombre
+            self.ui.about.clicked.connect(self.show_about_dialog)
 
         if hasattr(self.ui, 'history'):
             self.ui.history.clicked.connect(self.open_history)
@@ -1102,3 +1106,17 @@ class MathRootsController(QObject):
         
         if reply == QMessageBox.Yes:
             self.process_solve()
+
+    def show_about_dialog(self):
+        """Abre la ventana emergente de 'Acerca de'."""
+        # Crea una instancia del QDialog, pasando la ventana principal como padre
+        about_dialog = QDialog(self.main_window)
+        
+        # Crea una instancia de la UI generada
+        ui_about = Ui_Dialog()
+        
+        # Configura la UI en el diálogo
+        ui_about.setupUi(about_dialog)
+        
+        # Muestra el diálogo de forma modal (bloquea la ventana principal)
+        about_dialog.exec()

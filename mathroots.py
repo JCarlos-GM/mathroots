@@ -12,7 +12,9 @@ class MathRoots(QMainWindow):
         super().__init__()
         self.ui = Ui_MathRoots()
         self.ui.setupUi(self)
-        self.controller = MathRootsController(self.ui, self) 
+
+        # self.controller = MathRootsController(self.ui, self) 
+        # por esta puta linea de codigo se jodio todo el reconocimiento de voz y la mitad del puto progrmaa
 
         # Pasa 'self' (la instancia de la ventana MathRoots) al controlador
         self.controller = MathRootsController(self.ui, self) 
