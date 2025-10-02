@@ -188,6 +188,7 @@ class Ui_MathRoots(object):
         self.input.setPalette(palette)
         font = QFont()
         font.setPointSize(22)
+        font.setItalic(True)
         self.input.setFont(font)
         self.input.viewport().setProperty(u"cursor", QCursor(Qt.CursorShape.IBeamCursor))
         self.input.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1580,11 +1581,11 @@ class Ui_MathRoots(object):
 
         self.retranslateUi(MathRoots)
 
-        self.stackedWidget.setCurrentIndex(1)
+        self.stackedWidget.setCurrentIndex(0)
         self.solve.setDefault(False)
         self.HomeStackedWidgets.setCurrentIndex(1)
         self.solve_3.setDefault(False)
-        self.resultados.setCurrentIndex(2)
+        self.resultados.setCurrentIndex(1)
 
 
         QMetaObject.connectSlotsByName(MathRoots)
@@ -1604,8 +1605,8 @@ class Ui_MathRoots(object):
 "hr { height: 1px; border-width: 0; }\n"
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
-"</style></head><body style=\" font-family:'Segoe UI'; font-size:22pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>", None))
+"</style></head><body style=\" font-family:'Segoe UI'; font-size:22pt; font-weight:400; font-style:italic;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:normal;\"><br /></p></body></html>", None))
         self.input_image.setText("")
         self.input_voice.setText("")
         self.label_16.setText(QCoreApplication.translate("MathRoots", u"Pasos de soluci\u00f3n", None))
@@ -1648,8 +1649,8 @@ class Ui_MathRoots(object):
 "hr { height: 1px; border-width: 0; }\n"
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
-"</style></head><body style=\" font-family:'Segoe UI'; font-size:22pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>", None))
+"</style></head><body style=\" font-family:'Segoe UI'; font-size:22pt; font-weight:400; font-style:italic;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:normal;\"><br /></p></body></html>", None))
         self.solve_3.setText("")
         self.input_image_alt.setText("")
         self.resultado_2.setText(QCoreApplication.translate("MathRoots", u"Resultado", None))

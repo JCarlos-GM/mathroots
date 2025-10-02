@@ -31,6 +31,7 @@ class MathRootsController(QObject):
         self.graphics = None
         self.settings_widget = None
         self.history_widget = None
+        self.ui.logo_header.setVisible(False)
 
         self.settings = {
             'method': 'biseccion',
@@ -275,6 +276,7 @@ class MathRootsController(QObject):
         print(f"Estilos de botones actualizados para panel índice: {panel_index}")
 
     def process_solve(self):
+        self.ui.logo_header.setVisible(True)
         if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
             input_text = self.ui.input_3.toPlainText().strip()
         else:
