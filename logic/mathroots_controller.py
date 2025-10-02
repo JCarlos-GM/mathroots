@@ -1,6 +1,7 @@
-from PySide6.QtCore import QObject, Qt
-from PySide6.QtWidgets import QFileDialog, QAbstractItemView, QTableWidgetItem
-from PySide6.QtGui import QPixmap, QColor
+from PySide6.QtCore import QObject, Qt, QTimer, QRect
+from PySide6.QtWidgets import (QFileDialog, QAbstractItemView, QTableWidgetItem,
+                               QDialog, QVBoxLayout, QLabel)
+from PySide6.QtGui import QPixmap, QColor, QPainter, QPen
 import os
 import re
 
@@ -8,7 +9,7 @@ import re
 from .math_methods import MathMethods
 from .ocr_worker import OCRWorker
 from .voice_worker import VoiceWorker
-
+from ui.voice_indicator import VoiceIndicatorDialogAdvanced
 
 class MathRootsController(QObject):
     """Controlador de la ventana principal MathRoots"""
@@ -18,9 +19,10 @@ class MathRootsController(QObject):
         self.ui = ui
         self.ocr_worker = None
         self.voice_worker = None
+        self.voice_indicator = None  # AGREGADO
         self.math_methods = MathMethods()
         self.graphics = None
-        self.settings_widget = None  
+        self.settings_widget = None
 
         self.settings = {
             'method': 'biseccion',
@@ -36,8 +38,6 @@ class MathRootsController(QObject):
         self.setup_iterations_table()
         self._apply_result_roots_style()
 
-        self._update_button_styles_for_panel(1)  # Comenzar en resultados
-
     def set_graphics(self, graphics):
         """Establece la referencia al objeto Graphic"""
         self.graphics = graphics
@@ -48,11 +48,18 @@ class MathRootsController(QObject):
         self.ui.load_image.clicked.connect(self.load_image)
         self.ui.input_voice.clicked.connect(self.voice_mode)
         self.ui.solve.clicked.connect(self.process_solve)
-        self.ui.solve_3.clicked.connect(self.process_solve_keep_panel) 
+        self.ui.solve_3.clicked.connect(self.process_solve_keep_panel)
         self.ui.resultado_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.resultado_2))
         self.ui.procedimiento_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.procedimiento_2))
         self.ui.grafica_2.clicked.connect(lambda: self.seleccionar_boton(self.ui.grafica_2))
         self.ui.info.clicked.connect(self.info_window)
+
+        # NUEVAS CONEXIONES PARA BOTONES ALTERNATIVOS
+        if hasattr(self.ui, 'input_image_alt'):
+            self.ui.input_image_alt.clicked.connect(self.load_image_direct)
+        
+        if hasattr(self.ui, 'input_voice_alt'):
+            self.ui.input_voice_alt.clicked.connect(self.voice_mode_direct)
 
         # Conectar el botón de configuraciones
         if hasattr(self.ui, 'settings'):
@@ -62,13 +69,10 @@ class MathRootsController(QObject):
         """Abre el widget de configuraciones en el stackedWidget resultados"""
         from ui.settings_widget import SettingsWidget
         
-        # Si no existe el widget, crearlo
         if self.settings_widget is None:
             self.settings_widget = SettingsWidget(current_settings=self.settings)
             self.settings_widget.settings_saved.connect(self._on_settings_saved)
             
-            # Agregar el widget al stackedWidget 'resultados'
-            # Asumiendo que 'resultados' es tu QStackedWidget
             if hasattr(self.ui, 'resultados'):
                 self.ui.resultados.addWidget(self.settings_widget)
                 self.settings_index = self.ui.resultados.count() - 1
@@ -76,10 +80,8 @@ class MathRootsController(QObject):
                 print("Error: No se encuentra el stackedWidget 'resultados'")
                 return
         else:
-            # Actualizar las configuraciones en el widget existente
             self.settings_widget.update_settings(self.settings)
         
-        # Cambiar a la página de configuraciones
         if hasattr(self.ui, 'resultados'):
             self.ui.resultados.setCurrentWidget(self.settings_widget)
             print("Mostrando widget de configuraciones")
@@ -88,13 +90,7 @@ class MathRootsController(QObject):
         """Callback cuando se guardan nuevas configuraciones"""
         self.settings = new_settings.copy()
         print("Configuraciones actualizadas en el controlador")
-        
-        # Actualizar encabezados de tabla según el método
         self.update_table_headers_for_method()
-        
-        # Opcional: Volver a la vista de resultados después de guardar
-        # if hasattr(self.ui, 'resultados'):
-        #     self.ui.resultados.setCurrentIndex(1)  # O el índice que prefieras
 
     def graficar_ecuacion_actual(self):
         """Grafica la ecuación actual almacenada en math_methods"""
@@ -182,14 +178,12 @@ class MathRootsController(QObject):
             }
         """
         
-        # Actualizar estilos de todos los botones
         for boton in botones:
             if boton == boton_seleccionado:
                 boton.setStyleSheet(estilo_activo)
             else:
                 boton.setStyleSheet(estilo_inactivo)
 
-        # Cambiar el panel según el botón seleccionado
         if boton_seleccionado == self.ui.resultado_2:
             self.ui.resultados.setCurrentIndex(1)
         elif boton_seleccionado == self.ui.procedimiento_2:
@@ -198,14 +192,9 @@ class MathRootsController(QObject):
             self.ui.resultados.setCurrentIndex(2)
 
     def process_solve_keep_panel(self):
-        """
-        Versión de process_solve que mantiene el panel actual
-        (para el botón solve_3)
-        """
-        # Guardar el índice del panel actual
+        """Versión de process_solve que mantiene el panel actual (para solve_3)"""
         current_panel_index = self.ui.resultados.currentIndex()
         
-        # Obtener el texto de entrada
         if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
             input_text = self.ui.input_3.toPlainText().strip()
         else:
@@ -217,7 +206,6 @@ class MathRootsController(QObject):
         
         self.math_methods.equation = input_text
         
-        # Sincronizar ambos inputs
         if hasattr(self.ui, 'input_3'):
             self.ui.input_3.setPlainText(input_text)
         self.ui.input.setPlainText(input_text)
@@ -233,7 +221,6 @@ class MathRootsController(QObject):
         else:
             print(f"Ecuación inválida: {validation['error']}")
         
-        # Cambiar a la página principal (índice 1)
         self.change_main_index(1)
         
         if validation['valid']:
@@ -241,21 +228,13 @@ class MathRootsController(QObject):
             print(f"Ejecutando método: {self.settings['method'].upper()}")
             self.auto_find_and_solve()
             
-            # RESTAURAR el panel después de resolver
             self.ui.resultados.setCurrentIndex(current_panel_index)
-            
-            # ACTUALIZAR el estado visual de los botones según el panel
             self._update_button_styles_for_panel(current_panel_index)
         else:
             print(f"No se puede ejecutar: {validation['error']}")
 
     def _update_button_styles_for_panel(self, panel_index):
-        """
-        Actualiza los estilos de los botones según el panel actual
-        
-        Args:
-            panel_index: 0=procedimiento, 1=resultados, 2=gráfica
-        """
+        """Actualiza los estilos de los botones según el panel actual"""
         estilo_activo = """
             QPushButton {
                 background-color: #CD1C18;
@@ -279,14 +258,12 @@ class MathRootsController(QObject):
             }
         """
         
-        # Mapeo de índice a botón
         botones_map = {
-            0: self.ui.procedimiento_2,  # Procedimiento
-            1: self.ui.resultado_2,      # Resultados
-            2: self.ui.grafica_2         # Gráfica
+            0: self.ui.procedimiento_2,
+            1: self.ui.resultado_2,
+            2: self.ui.grafica_2
         }
         
-        # Actualizar estilos
         for idx, boton in botones_map.items():
             if idx == panel_index:
                 boton.setStyleSheet(estilo_activo)
@@ -296,10 +273,7 @@ class MathRootsController(QObject):
         print(f"Estilos de botones actualizados para panel índice: {panel_index}")
 
     def process_solve(self):
-        """
-        Función original que se ejecuta al hacer click en 'solve'
-        (siempre va al panel de resultados)
-        """
+        """Función original que se ejecuta al hacer click en 'solve'"""
         if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
             input_text = self.ui.input_3.toPlainText().strip()
         else:
@@ -333,47 +307,8 @@ class MathRootsController(QObject):
             print(f"Ejecutando método: {self.settings['method'].upper()}")
             self.auto_find_and_solve()
             
-            # Siempre ir al panel de resultados
             self.ui.resultados.setCurrentIndex(1)
-            # Actualizar botones para mostrar "resultado_2" activo
             self._update_button_styles_for_panel(1)
-        else:
-            print(f"No se puede ejecutar: {validation['error']}")
-
-    def process_solve(self):
-        """Función que se ejecuta al hacer click en 'solve' o 'solve_3'"""
-        if hasattr(self.ui, 'input_3') and self.ui.input_3.toPlainText().strip():
-            input_text = self.ui.input_3.toPlainText().strip()
-        else:
-            input_text = self.ui.input.toPlainText().strip()
-        
-        if not input_text:
-            print("No hay ecuación para resolver")
-            return
-        
-        self.math_methods.equation = input_text
-        
-        if hasattr(self.ui, 'input_3'):
-            self.ui.input_3.setPlainText(input_text)
-        self.ui.input.setPlainText(input_text)
-        
-        print(f"La ecuación capturada es: {self.math_methods.equation}")
-        
-        self.display_current_method_info()
-        self.update_table_headers_for_method()
-        
-        validation = self.math_methods.validate_equation()
-        if validation['valid']:
-            print(f"Ecuación válida: {validation['processed_equation']}")
-        else:
-            print(f"Ecuación inválida: {validation['error']}")
-        
-        self.change_main_index(1)
-        
-        if validation['valid']:
-            self.graficar_ecuacion_actual()
-            print(f"Ejecutando método: {self.settings['method'].upper()}")
-            self.auto_find_and_solve()
         else:
             print(f"No se puede ejecutar: {validation['error']}")
 
@@ -389,7 +324,130 @@ class MathRootsController(QObject):
     def voice_mode(self):
         """Cambia a la página de entrada de voz e inicia el reconocimiento"""
         self.ui.HomeStackedWidgets.setCurrentIndex(2)
+        
+        # AGREGAR: Crear y mostrar el diálogo indicador
+        self.voice_indicator = VoiceIndicatorDialogAdvanced(None)
+        self.voice_indicator.show()
+        
         self._start_voice_recognition()
+    
+    def load_image_direct(self):
+        """Carga y procesa una imagen directamente sin mostrarla (input_image_alt)"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            None,
+            "Selecciona una imagen",
+            "",
+            "Imágenes (*.png *.jpg *.jpeg *.bmp *.gif *.tiff);;Todos los archivos (*.*)"
+        )
+
+        if file_path:
+            print("\n" + "="*60)
+            print("PROCESAMIENTO DIRECTO DE IMAGEN")
+            print("="*60)
+            print("Archivo seleccionado:", file_path)
+            self._start_ocr_processing_direct(file_path)
+        else:
+            print("No se seleccionó ningún archivo")
+
+    def _start_ocr_processing_direct(self, image_path):
+        """Iniciar procesamiento OCR sin mostrar la imagen"""
+        print(f"Archivo: {os.path.basename(image_path)}")
+        print(f"Ruta: {image_path}")
+        print("Modo: Procesamiento directo (sin visualización)")
+        
+        self.ocr_worker = OCRWorker(image_path)
+        self.ocr_worker.finished.connect(self._on_ocr_finished_direct)
+        self.ocr_worker.error.connect(self._on_ocr_error)
+        self.ocr_worker.progress.connect(self._on_ocr_progress)
+        self.ocr_worker.start()
+
+    def _on_ocr_finished_direct(self, latex_result, method_used):
+        """Callback cuando OCR termina (versión directa)"""
+        print(f"Motor usado: {method_used}")
+        print("-" * 60)
+        print("RESULTADO LATEX BRUTO:")
+        print("-" * 30)
+        print(latex_result)
+
+        processed_result = self._clean_latex_exponents(latex_result)
+
+        print("-" * 30)
+        print("RESULTADO PROCESADO:")
+        print("-" * 30)
+        print(processed_result)
+
+        self.ui.input.setText(processed_result)
+        if hasattr(self.ui, 'input_3'):
+            self.ui.input_3.setPlainText(processed_result)
+        
+        print(f"Texto insertado en campos de entrada")
+        print("="*60 + "\n")
+        
+        self._cleanup_worker()
+
+    def voice_mode_direct(self):
+        """Inicia reconocimiento de voz directo con indicador (input_voice_alt)"""
+        print("\n" + "="*60)
+        print("RECONOCIMIENTO DE VOZ DIRECTO")
+        print("="*60)
+        
+        # Crear y mostrar el diálogo indicador SIN PADRE
+        self.voice_indicator = VoiceIndicatorDialog(None)  # ← CAMBIO AQUÍ
+        
+        self._start_voice_recognition_direct()
+        self.voice_indicator.show()
+
+    def _start_voice_recognition_direct(self):
+        """Iniciar el procesamiento de reconocimiento de voz (versión directa)"""
+        self.voice_worker = VoiceWorker()
+        self.voice_worker.finished.connect(self._on_voice_finished_direct)
+        self.voice_worker.error.connect(self._on_voice_error_direct)
+        self.voice_worker.progress.connect(self._on_voice_progress_direct)
+        self.voice_worker.start()
+
+    def _on_voice_progress_direct(self, message):
+        """Callback para actualizaciones de progreso de la voz (versión directa)"""
+        print(f"Progreso: {message}")
+
+    def _on_voice_finished(self, text_result, method_used):
+        """Callback cuando el reconocimiento de voz termina exitosamente"""
+        print(f"Motor usado: {method_used}")
+        print("-" * 60)
+        print("RESULTADO DE LA TRANSCRIPCIÓN BRUTO:")
+        print("-" * 30)
+        print(text_result)
+        
+        processed_text = self._process_voice_text(text_result)
+        
+        print("-" * 30)
+        print("RESULTADO PROCESADO:")
+        print("-" * 30)
+        print(processed_text)
+
+        self.ui.input.setText(processed_text)
+        print("="*60 + "\n")
+
+        # AGREGAR: Cerrar el diálogo indicador
+        if hasattr(self, 'voice_indicator') and self.voice_indicator:
+            self.voice_indicator.close()
+            self.voice_indicator = None
+
+        self._cleanup_voice_worker()
+
+    def _on_voice_error(self, error_message):
+        """Callback cuando el reconocimiento de voz falla"""
+        print("ERROR EN RECONOCIMIENTO DE VOZ")
+        print("-" * 60)
+        print(f"{error_message}")
+        print("="*60 + "\n")
+        
+        # AGREGAR: Cerrar el diálogo indicador
+        if hasattr(self, 'voice_indicator') and self.voice_indicator:
+            self.voice_indicator.close()
+            self.voice_indicator = None
+        
+        self._cleanup_voice_worker()
+
 
     def load_image(self):
         """Abre un file chooser para seleccionar una imagen"""
@@ -556,10 +614,16 @@ class MathRootsController(QObject):
             self.ocr_worker.quit()
             self.ocr_worker.wait()
         self._cleanup_worker()
+        
         if self.voice_worker and self.voice_worker.isRunning():
             self.voice_worker.quit()
             self.voice_worker.wait()
         self._cleanup_voice_worker()
+        
+        # Limpiar el indicador de voz
+        if hasattr(self, 'voice_indicator') and self.voice_indicator:
+            self.voice_indicator.close()
+            self.voice_indicator = None
 
     def _clean_latex_exponents(self, latex_string: str) -> str:
         """Elimina las llaves de los exponentes en una cadena de LaTeX si son innecesarias."""
@@ -610,21 +674,6 @@ class MathRootsController(QObject):
             print(f"Error en búsqueda automática: {e}")
             if hasattr(self.ui, 'result_roots'):
                 self.ui.result_roots.append(f"Error: {str(e)}")
-
-    def get_current_panel_name(self):
-        """
-        Obtiene el nombre del panel actual como string
-        
-        Returns:
-            str: 'procedimiento', 'resultados' o 'grafica'
-        """
-        current_index = self.ui.resultados.currentIndex()
-        panel_names = {
-            0: 'procedimiento',
-            1: 'resultados',
-            2: 'grafica'
-        }
-        return panel_names.get(current_index, 'desconocido')
 
     def _solve_with_bisection(self, tolerance, max_iterations):
         """Resuelve usando método de bisección"""
