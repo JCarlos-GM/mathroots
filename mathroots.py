@@ -16,18 +16,14 @@ class MathRoots(QMainWindow):
         # self.controller = MathRootsController(self.ui, self) 
         # por esta puta linea de codigo se jodio todo el reconocimiento de voz y la mitad del puto progrmaa
 
-        # Pasa 'self' (la instancia de la ventana MathRoots) al controlador
         self.controller = MathRootsController(self.ui, self) 
         self.graphics = Graphic(self.ui)
 
-        # Ajustes iniciales de las ventanas
         self.ui.stackedWidget.setCurrentIndex(0)
         self.ui.HomeStackedWidgets.setCurrentIndex(0)
 
-        # Conecta el controller con graphics
         self.controller.set_graphics(self.graphics)
         
-        # Aplica estilos a las tablas
         self.apply_table_styles()
         
         print("MathRoots iniciado correctamente")
@@ -40,7 +36,6 @@ class MathRoots(QMainWindow):
     def closeEvent(self, event):
         """Maneja el evento de cierre de la ventana"""
         print("Cerrando aplicación...")
-        # Limpiar recursos del controller (workers de OCR y voz)
         self.controller.cleanup()
         event.accept()
 
@@ -49,16 +44,13 @@ def main():
     """Función principal que ejecuta la aplicación"""
     app = QApplication(sys.argv)
     
-    # Configuración opcional de la aplicación
     app.setApplicationName("MathRoots")
     app.setOrganizationName("MathRoots")
     app.setApplicationVersion("1.0.0")
     
-    # Crear y mostrar la ventana principal
     window = MathRoots()
     window.show()
     
-    # Ejecutar el loop de eventos
     sys.exit(app.exec())
 
 
