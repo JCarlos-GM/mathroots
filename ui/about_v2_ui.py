@@ -482,7 +482,7 @@ class Ui_Dialog(object):
         self.label_2.setScaledContents(True)
         self.label_6 = QLabel(self.frame)
         self.label_6.setObjectName(u"label_6")
-        self.label_6.setGeometry(QRect(460, 330, 181, 21))
+        self.label_6.setGeometry(QRect(450, 330, 201, 21))
         palette6 = QPalette()
         palette6.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.WindowText, brush)
         palette6.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.Button, brush1)

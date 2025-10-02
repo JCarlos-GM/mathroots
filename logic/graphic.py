@@ -98,10 +98,10 @@ class Graphic(QObject):
 
         # Líneas de referencia (ejes X e Y)
         linea_h = pg.InfiniteLine(
-            pos=0, angle=0, pen=pg.mkPen("k", width=1, style=Qt.PenStyle.DashLine)
+            pos=0, angle=0, pen=pg.mkPen("k", width=2, style=Qt.PenStyle.DashLine)
         )
         linea_v = pg.InfiniteLine(
-            pos=0, angle=90, pen=pg.mkPen("k", width=1, style=Qt.PenStyle.DashLine)
+            pos=0, angle=90, pen=pg.mkPen("k", width=2, style=Qt.PenStyle.DashLine)
         )
         self.plot_widget.addItem(linea_h)
         self.plot_widget.addItem(linea_v)
@@ -154,6 +154,36 @@ class Graphic(QObject):
         except Exception as e:
             raise ValueError(f"Error al parsear la función: {str(e)}")
 
+    def encontrar_raices(self, func, x, y):
+        """
+        Encuentra las raíces (intersecciones con el eje x, donde y=0).
+        
+        Args:
+            func: Función a evaluar
+            x: Array de valores x
+            y: Array de valores y evaluados
+        
+        Returns:
+            list: Lista de valores x donde ocurren las raíces (y=0)
+        """
+        raices = []
+        
+        # Buscar cambios de signo (solo cambios de signo reales)
+        for i in range(len(y) - 1):
+            if np.isnan(y[i]) or np.isnan(y[i + 1]) or np.isinf(y[i]) or np.isinf(y[i + 1]):
+                continue
+            
+            # Solo detectar cambios de signo reales (positivo a negativo o viceversa)
+            if y[i] * y[i + 1] < 0:  # Cambio de signo
+                # Interpolación lineal para encontrar la raíz más precisa
+                x_raiz = x[i] - y[i] * (x[i + 1] - x[i]) / (y[i + 1] - y[i])
+                
+                # Evitar raíces duplicadas muy cercanas (dentro de 0.05 unidades)
+                if len(raices) == 0 or abs(x_raiz - raices[-1]) > 0.05:
+                    raices.append(x_raiz)
+        
+        return raices
+
     def graficar_funcion(self, expresion, x_min=-10, x_max=10, limpiar=False):
         """
         Grafica una función matemática.
@@ -205,22 +235,43 @@ class Graphic(QObject):
             
             # Obtener color
             color = self.colores[self.indice_color % len(self.colores)]
-            pen = pg.mkPen(color=color, width=2)
+            pen = pg.mkPen(color=color, width=3)
             
             # Graficar
             curva = self.plot_widget.plot(x, y, pen=pen, name=expresion)
+            
+            # Encontrar y marcar las raíces (donde y=0)
+            raices = self.encontrar_raices(func, x, y)
+            lineas_raices = []
+            
+            for raiz in raices:
+                # Crear línea vertical punteada en cada raíz
+                linea = pg.InfiniteLine(
+                    pos=raiz,
+                    angle=90,
+                    pen=pg.mkPen(color=color, width=1.5, style=Qt.PenStyle.DotLine),
+                    label=f'x={raiz:.3f}',
+                    labelOpts={'position': 0.95, 'color': color}
+                )
+                self.plot_widget.addItem(linea)
+                lineas_raices.append(linea)
             
             # Guardar referencia
             self.funciones_graficadas.append({
                 'expresion': expresion,
                 'curva': curva,
-                'color': color
+                'color': color,
+                'raices': raices,
+                'lineas_raices': lineas_raices
             })
             
             # Incrementar índice de color
             self.indice_color += 1
             
             print(f"Función graficada: {expresion}")
+            if raices:
+                print(f"Raíces encontradas (y=0): {[f'{r:.3f}' for r in raices]}")
+            
             return True
             
         except ValueError as e:
@@ -256,8 +307,15 @@ class Graphic(QObject):
         ):
             return
 
-        # Eliminar de la gráfica
-        self.plot_widget.removeItem(self.funciones_graficadas[indice]["curva"])
+        funcion = self.funciones_graficadas[indice]
+        
+        # Eliminar la curva de la gráfica
+        self.plot_widget.removeItem(funcion["curva"])
+        
+        # Eliminar las líneas de las raíces si existen
+        if 'lineas_raices' in funcion:
+            for linea in funcion['lineas_raices']:
+                self.plot_widget.removeItem(linea)
 
         # Eliminar de la lista
         self.funciones_graficadas.pop(indice)
@@ -332,6 +390,10 @@ class Graphic(QObject):
             list: Lista de diccionarios con información de las funciones
         """
         return [
-            {"expresion": f["expresion"], "color": f["color"]}
+            {
+                "expresion": f["expresion"], 
+                "color": f["color"],
+                "raices": f.get("raices", [])
+            }
             for f in self.funciones_graficadas
         ]

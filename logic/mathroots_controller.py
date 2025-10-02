@@ -116,9 +116,9 @@ class MathRootsController(QObject):
             self.ui.tabla_iteraciones.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
             
             if self.settings['method'] == 'biseccion':
-                headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
+                headers = ['Iteración', '      xₗ', '     xᵣ', '     xₘ', '    f(xₗ)', '     f(xᵣ)', '     f(xₘ)', '  Error']
             else:
-                headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
+                headers = ['Iteración', '      xₗ', '     f(xₙ)', "     f'(xₙ)", '   xₙ₊₁', '  Error']
             
             self.ui.tabla_iteraciones.setColumnCount(len(headers))
             self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
@@ -135,9 +135,9 @@ class MathRootsController(QObject):
             return
         
         if self.settings['method'] == 'biseccion':
-            headers = ['Iteración', 'xₗ', 'xᵣ', 'xₘ', 'f(xₗ)', 'f(xᵣ)', 'f(xₘ)', 'Error']
+            headers = ['Iteración', '      xₗ', '      xᵣ', '      xₘ', '      f(xₗ)', '      f(xᵣ)', '      f(xₘ)', '   Error']
         else:
-            headers = ['Iteración', 'xₙ', 'f(xₙ)', "f'(xₙ)", 'xₙ₊₁', 'Error']
+            headers = ['Iteración', '      xₙ', '      f(xₙ)', "      f'(xₙ)", '     xₙ₊₁', '  Error']
         
         self.ui.tabla_iteraciones.setColumnCount(len(headers))
         self.ui.tabla_iteraciones.setHorizontalHeaderLabels(headers)
